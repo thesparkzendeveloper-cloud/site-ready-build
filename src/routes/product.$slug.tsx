@@ -33,7 +33,7 @@ export const Route = createFileRoute("/product/$slug")({
 });
 
 const sizes = ["S", "M", "L", "XL", "XXL"];
-const swatches = [
+const swatches: [string, string][] = [
   ["Black", "oklch(0.16 0.008 40)"],
   ["Red", "oklch(0.53 0.216 27.5)"],
   ["Off White", "oklch(0.95 0.01 85)"],
