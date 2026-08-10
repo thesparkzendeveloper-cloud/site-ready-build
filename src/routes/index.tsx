@@ -38,7 +38,7 @@ const categoryCards = [
 ];
 
 function Home() {
-  const featured = products[0];
+  const featured = products[0]!;
 
   return (
     <SiteLayout>

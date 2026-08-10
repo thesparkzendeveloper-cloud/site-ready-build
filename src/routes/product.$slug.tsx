@@ -4,7 +4,7 @@ import { Star, ShoppingCart, Truck, RefreshCw, ShieldCheck, Plus } from "lucide-
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { ProductCard } from "@/components/site/ProductCard";
-import { getProduct, products, formatPrice } from "@/lib/products";
+import { getProduct, products, formatPrice, type Product } from "@/lib/products";
 
 export const Route = createFileRoute("/product/$slug")({
   loader: ({ params }) => {
@@ -40,8 +40,8 @@ const swatches = [
 ];
 
 function ProductPage() {
-  const { product } = Route.useLoaderData();
-  const [image, setImage] = useState(product.gallery[0]);
+  const { product } = Route.useLoaderData() as { product: Product };
+  const [image, setImage] = useState(product.gallery[0]!);
   const [size, setSize] = useState("M");
   const [color, setColor] = useState("Black");
 
