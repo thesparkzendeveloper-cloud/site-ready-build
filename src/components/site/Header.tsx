@@ -23,9 +23,8 @@ export function Header() {
               key={item.label + i}
               to={item.to}
               className="text-foreground/80 transition-colors hover:text-primary"
-              activeProps={{ className: "text-primary" }}
-              activeOptions={{ exact: true }}
             >
+
               {item.label}
             </Link>
           ))}
