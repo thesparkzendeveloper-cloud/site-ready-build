@@ -9,19 +9,51 @@ import keychain from "@/assets/product-keychain.jpg";
 import tote from "@/assets/product-tote.jpg";
 import heroHoodie from "@/assets/hero-hoodie.jpg";
 
+import {
+  fetchShopifyProducts,
+  fetchShopifyProductByHandle,
+  fetchShopifyCollections,
+  type ShopifyProduct,
+  type ShopifyCollection,
+  type ShopifyVariant,
+  type ShopifyProductOption,
+} from "./shopify";
+
+export type ProductVariant = {
+  id: string;
+  title: string;
+  price: number;
+  compareAt?: number | undefined;
+  availableForSale: boolean;
+  selectedOptions: Array<{ name: string; value: string }>;
+  image?: string | undefined;
+};
+
+export type ProductOption = {
+  id: string;
+  name: string;
+  values: string[];
+};
+
 export type Product = {
+  id?: string | undefined;
+  variantId?: string | undefined;
   slug: string;
   name: string;
   subtitle: string;
   price: number;
-  compareAt?: number;
+  compareAt?: number | undefined;
   image: string;
   gallery: string[];
   category: string;
-  badge?: string;
+  badge?: string | undefined;
   rating: number;
   reviews: number;
   description: string;
+  availableForSale?: boolean | undefined;
+  currencyCode?: string | undefined;
+  options?: ProductOption[] | undefined;
+  variants?: ProductVariant[] | undefined;
 };
 
 export const products: Product[] = [
@@ -159,4 +191,90 @@ export const categories = [
 
 export const getProduct = (slug: string) => products.find((p) => p.slug === slug);
 
-export const formatPrice = (value: number) => `₹${value.toLocaleString("en-IN")}`;
+export const formatPrice = (value: number, currencyCode: string = "INR") => {
+  if (currencyCode === "INR") {
+    return `₹${value.toLocaleString("en-IN")}`;
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currencyCode,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
+export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
+  const price = Math.round(parseFloat(sp.priceRange.minVariantPrice.amount));
+  const compareAt = sp.compareAtPriceRange?.minVariantPrice?.amount
+    ? Math.round(parseFloat(sp.compareAtPriceRange.minVariantPrice.amount))
+    : undefined;
+
+  const images = sp.images.nodes.map((img) => img.url);
+  const featuredImg = sp.featuredImage?.url || images[0] || heroHoodie;
+  const gallery = images.length > 0 ? images : [featuredImg];
+
+  const firstVariant = sp.variants.nodes[0];
+  const primaryCollection = sp.collections.nodes[0]?.title || sp.productType || "Streetwear";
+
+  return {
+    id: sp.id,
+    variantId: firstVariant?.id,
+    slug: sp.handle,
+    name: sp.title,
+    subtitle: primaryCollection,
+    price,
+    compareAt: compareAt && compareAt > price ? compareAt : undefined,
+    image: featuredImg,
+    gallery,
+    category: primaryCollection,
+    rating: 4.8,
+    reviews: 120,
+    description: sp.description || "Premium streetwear piece by SparkZen.",
+    availableForSale: sp.availableForSale,
+    currencyCode: sp.priceRange.minVariantPrice.currencyCode || "INR",
+    options: sp.options.map((opt) => ({
+      id: opt.id,
+      name: opt.name,
+      values: opt.values,
+    })),
+    variants: sp.variants.nodes.map((v) => ({
+      id: v.id,
+      title: v.title,
+      price: Math.round(parseFloat(v.price.amount)),
+      compareAt: v.compareAtPrice ? Math.round(parseFloat(v.compareAtPrice.amount)) : undefined,
+      availableForSale: v.availableForSale,
+      selectedOptions: v.selectedOptions,
+      image: v.image?.url,
+    })),
+  };
+}
+
+export async function getProductsAsync(): Promise<Product[]> {
+  const shopifyProducts = await fetchShopifyProducts();
+  if (shopifyProducts.length > 0) {
+    return shopifyProducts.map(mapShopifyProductToProduct);
+  }
+  return products;
+}
+
+export async function getProductAsync(slug: string): Promise<Product | undefined> {
+  const sp = await fetchShopifyProductByHandle(slug);
+  if (sp) {
+    return mapShopifyProductToProduct(sp);
+  }
+  return getProduct(slug);
+}
+
+export async function getCategoriesAsync(): Promise<Array<{ name: string; count: number }>> {
+  const shopifyCollections = await fetchShopifyCollections();
+  if (shopifyCollections.length > 0) {
+    const list = [
+      { name: "All Products", count: 0 },
+      ...shopifyCollections.map((col) => ({
+        name: col.title,
+        count: col.products?.totalCount || 0,
+      })),
+    ];
+    return list;
+  }
+  return categories;
+}

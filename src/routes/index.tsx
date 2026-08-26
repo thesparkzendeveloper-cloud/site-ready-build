@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ArrowRight, Star } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ProductCard } from "@/components/site/ProductCard";
 import { TrustBar } from "@/components/site/TrustBar";
-import { products, formatPrice } from "@/lib/products";
+import { products as fallbackProducts, getProductsAsync, formatPrice, type Product } from "@/lib/products";
 import heroHoodie from "@/assets/hero-hoodie.jpg";
 import dropBanner from "@/assets/drop-banner.jpg";
 import graphicHoodie from "@/assets/product-graphic-hoodie.jpg";
@@ -38,7 +39,21 @@ const categoryCards = [
 ];
 
 function Home() {
-  const featured = products[0]!;
+  const [productList, setProductList] = useState<Product[]>(fallbackProducts);
+
+  useEffect(() => {
+    let isMounted = true;
+    getProductsAsync().then((list) => {
+      if (isMounted && list.length > 0) {
+        setProductList(list);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const featured = productList[0] || fallbackProducts[0]!;
 
   return (
     <SiteLayout>
@@ -110,11 +125,11 @@ function Home() {
             <p className="mt-2 max-w-md text-sm text-muted-foreground">{featured.description}</p>
             <div className="mt-4 flex items-center gap-3">
               <span className="text-xl font-extrabold text-primary">
-                {formatPrice(featured.price)}
+                {formatPrice(featured.price, featured.currencyCode)}
               </span>
               {featured.compareAt && (
                 <span className="text-sm text-muted-foreground line-through">
-                  {formatPrice(featured.compareAt)}
+                  {formatPrice(featured.compareAt, featured.currencyCode)}
                 </span>
               )}
             </div>
@@ -195,7 +210,7 @@ function Home() {
           </Link>
         </div>
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {products.slice(0, 4).map((p) => (
+          {productList.slice(0, 4).map((p) => (
             <ProductCard key={p.slug} product={p} />
           ))}
         </div>
@@ -222,3 +237,4 @@ function Home() {
     </SiteLayout>
   );
 }
+

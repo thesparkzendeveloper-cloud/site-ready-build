@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { Search, ShoppingCart, Menu } from "lucide-react";
 import { useState } from "react";
 import { Logo } from "./Logo";
+import { useCart } from "@/context/CartContext";
 
 const nav = [
   { label: "Shop", to: "/shop" },
@@ -13,6 +14,7 @@ const nav = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const { totalQuantity, openCart } = useCart();
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur">
@@ -47,13 +49,14 @@ export function Header() {
             <Search className="h-5 w-5" />
           </button>
           <span className="hidden h-8 w-8 rounded-full bg-muted ring-1 ring-border sm:block" />
-          <Link
-            to="/shop"
-            className="inline-flex items-center gap-2 rounded-full border border-primary px-3.5 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
+          <button
+            onClick={openCart}
+            aria-label="View Cart"
+            className="inline-flex items-center gap-2 rounded-full border border-primary px-3.5 py-1.5 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-primary-foreground cursor-pointer"
           >
             <ShoppingCart className="h-4 w-4" />
-            1 item
-          </Link>
+            {totalQuantity} {totalQuantity === 1 ? "item" : "items"}
+          </button>
         </div>
       </div>
 

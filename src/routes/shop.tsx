@@ -1,10 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { ProductCard } from "@/components/site/ProductCard";
-import { categories, products } from "@/lib/products";
+import {
+  categories as fallbackCategories,
+  products as fallbackProducts,
+  getProductsAsync,
+  getCategoriesAsync,
+  type Product,
+} from "@/lib/products";
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
@@ -36,13 +42,30 @@ const colors = [
 const materials = ["Cotton", "Fleece", "French Terry", "Polyester Blend"];
 
 function Shop() {
+  const [productList, setProductList] = useState<Product[]>(fallbackProducts);
+  const [categoryList, setCategoryList] = useState<Array<{ name: string; count: number }>>(
+    fallbackCategories
+  );
   const [active, setActive] = useState("All Products");
   const [size, setSize] = useState<string | null>(null);
-  const [maxPrice, setMaxPrice] = useState(2000);
+  const [maxPrice, setMaxPrice] = useState(10000);
   const [sort, setSort] = useState("featured");
 
-  let list = products.filter(
-    (p) => (active === "All Products" || p.category === active) && p.price <= maxPrice,
+  useEffect(() => {
+    let isMounted = true;
+    Promise.all([getProductsAsync(), getCategoriesAsync()]).then(([prods, cats]) => {
+      if (isMounted) {
+        if (prods.length > 0) setProductList(prods);
+        if (cats.length > 0) setCategoryList(cats);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  let list = productList.filter(
+    (p) => (active === "All Products" || p.category === active) && p.price <= maxPrice
   );
   if (sort === "low") list = [...list].sort((a, b) => a.price - b.price);
   if (sort === "high") list = [...list].sort((a, b) => b.price - a.price);
@@ -65,7 +88,7 @@ function Shop() {
           <section>
             <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Categories</h2>
             <ul className="mt-3 space-y-1">
-              {categories.map((c) => (
+              {categoryList.map((c) => (
                 <li key={c.name}>
                   <button
                     onClick={() => setActive(c.name)}
