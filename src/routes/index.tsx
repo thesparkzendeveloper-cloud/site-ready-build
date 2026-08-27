@@ -103,8 +103,8 @@ function Home() {
           <div className="relative">
             <div className="absolute -inset-6 rounded-full bg-primary/25 blur-3xl" />
             <img
-              src={heroHoodie}
-              alt="SparkZen signature graphic hoodie"
+              src={featured?.image || heroHoodie}
+              alt={featured?.name || "SparkZen signature graphic hoodie"}
               className="relative aspect-square w-full rounded-2xl object-cover"
             />
           </div>

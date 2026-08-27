@@ -3,7 +3,7 @@
 const SHOPIFY_STORE_DOMAIN =
   import.meta.env["VITE_SHOPIFY_STORE_DOMAIN"] || "spark-zen-2.myshopify.com";
 const SHOPIFY_STOREFRONT_ACCESS_TOKEN =
-  import.meta.env["VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN"] || "";
+  import.meta.env["VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN"] || "eb6d7bc941b1991968b065f1afb77831";
 const SHOPIFY_STOREFRONT_API_VERSION =
   import.meta.env["VITE_SHOPIFY_STOREFRONT_API_VERSION"] || "2026-07";
 
