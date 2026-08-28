@@ -213,7 +213,8 @@ export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
   const gallery = images.length > 0 ? images : [featuredImg];
 
   const firstVariant = sp.variants.nodes[0];
-  const primaryCollection = sp.collections.nodes[0]?.title || sp.productType || "Streetwear";
+  const nonHomeCollection = sp.collections.nodes.find((c) => c.title !== "Home page")?.title;
+  const primaryCollection = sp.productType || nonHomeCollection || sp.collections.nodes[0]?.title || "Streetwear";
 
   return {
     id: sp.id,
@@ -265,16 +266,44 @@ export async function getProductAsync(slug: string): Promise<Product | undefined
 }
 
 export async function getCategoriesAsync(): Promise<Array<{ name: string; count: number }>> {
-  const shopifyCollections = await fetchShopifyCollections();
+  const [shopifyCollections, shopifyProducts] = await Promise.all([
+    fetchShopifyCollections(),
+    fetchShopifyProducts(),
+  ]);
+
+  if (shopifyProducts.length > 0) {
+    const mapped = shopifyProducts.map(mapShopifyProductToProduct);
+    const categoryCounts: Record<string, number> = {};
+
+    for (const p of mapped) {
+      if (p.category) {
+        categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
+      }
+    }
+
+    const result = [
+      { name: "All Products", count: mapped.length },
+      ...Object.entries(categoryCounts).map(([name, count]) => ({ name, count })),
+    ];
+
+    for (const col of shopifyCollections) {
+      if (col.title !== "Home page" && !result.some((r) => r.name === col.title)) {
+        result.push({ name: col.title, count: 0 });
+      }
+    }
+
+    return result;
+  }
+
   if (shopifyCollections.length > 0) {
-    const list = [
+    return [
       { name: "All Products", count: 0 },
       ...shopifyCollections.map((col) => ({
         name: col.title,
-        count: col.products?.totalCount || 0,
+        count: 0,
       })),
     ];
-    return list;
   }
+
   return categories;
 }

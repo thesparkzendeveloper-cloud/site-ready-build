@@ -259,9 +259,6 @@ const COLLECTIONS_QUERY = `
           url
           altText
         }
-        products(first: 1) {
-          totalCount
-        }
       }
     }
   }

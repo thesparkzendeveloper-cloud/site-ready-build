@@ -59,6 +59,8 @@ function Home() {
     }
   }, [loadedProducts]);
 
+  const featured = productList[0] || fallbackProducts[0];
+
   const categoriesWithDynamicImages = [
     { name: "Hoodies", image: productList[0]?.image || graphicHoodie },
     { name: "Oversized Tees", image: productList[1]?.image || oversizedTee },
