@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Search } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { ProductCard } from "@/components/site/ProductCard";
@@ -57,6 +57,7 @@ function Shop() {
   const [size, setSize] = useState<string | null>(null);
   const [maxPrice, setMaxPrice] = useState(10000);
   const [sort, setSort] = useState("featured");
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (loadedProducts && loadedProducts.length > 0) {
@@ -67,9 +68,15 @@ function Shop() {
     }
   }, [loadedProducts, loadedCategories]);
 
-  let list = productList.filter(
-    (p) => (active === "All Products" || p.category === active) && p.price <= maxPrice
-  );
+  let list = productList.filter((p) => {
+    const matchesCategory = active === "All Products" || p.category === active;
+    const matchesPrice = p.price <= maxPrice;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesPrice && matchesSearch;
+  });
   if (sort === "low") list = [...list].sort((a, b) => a.price - b.price);
   if (sort === "high") list = [...list].sort((a, b) => b.price - a.price);
 
@@ -190,23 +197,37 @@ function Shop() {
 
         {/* Grid */}
         <div>
-          <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
             <p className="text-sm text-muted-foreground">
               Showing <span className="font-bold text-foreground">{list.length}</span> products
             </p>
-            <label className="flex items-center gap-2 text-sm">
-              <SlidersHorizontal className="h-4 w-4 text-primary" />
-              <span className="sr-only">Sort by</span>
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="featured">Featured</option>
-                <option value="low">Price: Low to High</option>
-                <option value="high">Price: High to Low</option>
-              </select>
-            </label>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-surface pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm shrink-0">
+                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <span className="sr-only">Sort by</span>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="featured">Featured</option>
+                  <option value="low">Price: Low to High</option>
+                  <option value="high">Price: High to Low</option>
+                </select>
+              </label>
+            </div>
           </div>
 
           {list.length === 0 ? (
