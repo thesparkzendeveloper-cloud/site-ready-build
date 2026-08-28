@@ -13,6 +13,10 @@ import sweatshirt from "@/assets/product-sweatshirt.jpg";
 import cap from "@/assets/product-cap.jpg";
 
 export const Route = createFileRoute("/")({
+  loader: async () => {
+    const products = await getProductsAsync();
+    return { products };
+  },
   head: () => ({
     meta: [
       { title: "SparkZen Clothing — Define Your Style, Own Your World" },
@@ -39,19 +43,21 @@ const categoryCards = [
 ];
 
 function Home() {
-  const [productList, setProductList] = useState<Product[]>(fallbackProducts);
+  const { products: loadedProducts } = Route.useLoaderData();
+  const initialProducts = loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts;
+  const [productList, setProductList] = useState<Product[]>(initialProducts);
 
   useEffect(() => {
-    let isMounted = true;
-    getProductsAsync().then((list) => {
-      if (isMounted && list.length > 0) {
-        setProductList(list);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    if (loadedProducts && loadedProducts.length > 0) {
+      setProductList(loadedProducts);
+    } else {
+      getProductsAsync().then((list) => {
+        if (list.length > 0) {
+          setProductList(list);
+        }
+      });
+    }
+  }, [loadedProducts]);
 
   const categoriesWithDynamicImages = [
     { name: "Hoodies", image: productList[0]?.image || graphicHoodie },

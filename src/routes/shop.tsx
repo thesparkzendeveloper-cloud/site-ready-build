@@ -13,6 +13,10 @@ import {
 } from "@/lib/products";
 
 export const Route = createFileRoute("/shop")({
+  loader: async () => {
+    const [products, categories] = await Promise.all([getProductsAsync(), getCategoriesAsync()]);
+    return { products, categories };
+  },
   head: () => ({
     meta: [
       { title: "Shop All Streetwear — SparkZen Clothing" },
@@ -42,9 +46,12 @@ const colors = [
 const materials = ["Cotton", "Fleece", "French Terry", "Polyester Blend"];
 
 function Shop() {
-  const [productList, setProductList] = useState<Product[]>(fallbackProducts);
+  const { products: loadedProducts, categories: loadedCategories } = Route.useLoaderData();
+  const [productList, setProductList] = useState<Product[]>(
+    loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts
+  );
   const [categoryList, setCategoryList] = useState<Array<{ name: string; count: number }>>(
-    fallbackCategories
+    loadedCategories && loadedCategories.length > 0 ? loadedCategories : fallbackCategories
   );
   const [active, setActive] = useState("All Products");
   const [size, setSize] = useState<string | null>(null);
@@ -52,17 +59,13 @@ function Shop() {
   const [sort, setSort] = useState("featured");
 
   useEffect(() => {
-    let isMounted = true;
-    Promise.all([getProductsAsync(), getCategoriesAsync()]).then(([prods, cats]) => {
-      if (isMounted) {
-        if (prods.length > 0) setProductList(prods);
-        if (cats.length > 0) setCategoryList(cats);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    if (loadedProducts && loadedProducts.length > 0) {
+      setProductList(loadedProducts);
+    }
+    if (loadedCategories && loadedCategories.length > 0) {
+      setCategoryList(loadedCategories);
+    }
+  }, [loadedProducts, loadedCategories]);
 
   let list = productList.filter(
     (p) => (active === "All Products" || p.category === active) && p.price <= maxPrice
