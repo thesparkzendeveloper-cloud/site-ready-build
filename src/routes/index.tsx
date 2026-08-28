@@ -53,7 +53,12 @@ function Home() {
     };
   }, []);
 
-  const featured = productList[0] || fallbackProducts[0]!;
+  const categoriesWithDynamicImages = [
+    { name: "Hoodies", image: productList[0]?.image || graphicHoodie },
+    { name: "Oversized Tees", image: productList[1]?.image || oversizedTee },
+    { name: "Sweatshirts", image: productList[2]?.image || sweatshirt },
+    { name: "Accessories", image: productList[0]?.image || cap },
+  ];
 
   return (
     <SiteLayout>
@@ -157,7 +162,7 @@ function Home() {
           </Link>
         </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {categoryCards.map((cat) => (
+          {categoriesWithDynamicImages.map((cat) => (
             <Link
               key={cat.name}
               to="/shop"
@@ -181,7 +186,7 @@ function Home() {
 
       {/* Drop banner */}
       <section className="relative mt-14 overflow-hidden rounded-3xl">
-        <img src={dropBanner} alt="New drop" className="h-72 w-full object-cover sm:h-80" />
+        <img src={productList[1]?.image || dropBanner} alt="New drop" className="h-72 w-full object-cover sm:h-80" />
         <div className="absolute inset-0 flex flex-col justify-center gap-4 bg-ink/70 p-8 sm:p-14">
           <p className="eyebrow">New Drop Alert</p>
           <h2 className="max-w-lg text-3xl text-ink-foreground sm:text-4xl">
