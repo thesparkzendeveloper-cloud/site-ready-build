@@ -224,7 +224,30 @@ function CheckoutPage() {
         },
       };
 
+      console.log("[Razorpay Frontend] Initializing Razorpay Checkout:", {
+        orderId: data.orderId,
+        amount: data.amount,
+        currency: data.currency || "INR",
+        keyId: data.keyId,
+      });
+
       const razorpayInstance = new window.Razorpay(options);
+
+      // Register payment failure listener for detailed error diagnostics
+      razorpayInstance.on("payment.failed", (response: any) => {
+        const err = response?.error;
+        console.error("[Razorpay] Payment error:", {
+          code: err?.code,
+          description: err?.description,
+          reason: err?.reason,
+          source: err?.source,
+          step: err?.step,
+        });
+        setIsProcessing(false);
+        setPaymentCancelled(true);
+        toast.error(err?.description || "Payment was not completed.");
+      });
+
       razorpayInstance.open();
     } catch (err) {
       console.error("Checkout Exception:", err);

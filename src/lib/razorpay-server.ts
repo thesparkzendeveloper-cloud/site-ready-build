@@ -37,7 +37,7 @@ function timingSafeEqualStrings(a: string, b: string): boolean {
 export async function handleCreateRazorpayOrder(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-      status: 450,
+      status: 405,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -74,12 +74,12 @@ export async function handleCreateRazorpayOrder(request: Request): Promise<Respo
       );
     }
 
-    // Convert to smallest currency unit (paise: ₹499 -> 49900 paise)
+    // Convert to integer in smallest currency unit (paise: ₹4 -> 400, ₹499 -> 49900)
     const amountInPaise = Math.round(finalAmountRupees * 100);
     const currency = "INR";
     const receipt = `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    console.log(`[Razorpay Server] Creating order for amount: ${amountInPaise} paise (${finalAmountRupees} INR)`);
+    console.log(`[Razorpay Server] Creating order: amount=${amountInPaise} paise (${finalAmountRupees} INR), currency=${currency}`);
 
     // Call official Razorpay Orders API (v1/orders)
     const razorpayRes = await fetch("https://api.razorpay.com/v1/orders", {
@@ -99,25 +99,43 @@ export async function handleCreateRazorpayOrder(request: Request): Promise<Respo
       }),
     });
 
+    const status = razorpayRes.status;
+    const responseJson = await razorpayRes.json().catch(() => null);
+
     if (!razorpayRes.ok) {
-      const errorData = await razorpayRes.json().catch(() => null);
-      console.error("[Razorpay Server] Razorpay Orders API Error:", errorData);
-      
-      // Fallback mock order ID generation for test environment if API key is in test placeholder mode
-      const mockOrderId = `order_test_${Date.now()}`;
+      const errorCode = responseJson?.error?.code || "ORDER_CREATION_FAILED";
+      const errorDesc = responseJson?.error?.description || "Failed to create Razorpay Order";
+
+      // Log safe diagnostic info
+      console.error("[Razorpay Server] Orders API Error Diagnostic:", {
+        status,
+        errorCode,
+        errorDesc,
+        amount: amountInPaise,
+        currency,
+      });
+
       return new Response(
         JSON.stringify({
-          success: true,
-          orderId: mockOrderId,
-          amount: amountInPaise,
-          currency,
+          success: false,
+          error: `${errorDesc} (HTTP ${status})`,
+          code: errorCode,
+          status,
           keyId: RAZORPAY_KEY_ID,
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    const orderData = (await razorpayRes.json()) as { id: string; amount: number; currency: string };
+    const orderData = responseJson as { id: string; amount: number; currency: string };
+
+    // Log safe diagnostic information
+    console.log("[Razorpay Server] Order Created Successfully Diagnostic:", {
+      status,
+      order_id: orderData.id,
+      amount: orderData.amount,
+      currency: orderData.currency,
+    });
 
     return new Response(
       JSON.stringify({
@@ -168,41 +186,43 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
 
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
 
-    if (!razorpay_payment_id || !razorpay_order_id) {
+    if (!razorpay_payment_id || !razorpay_order_id || !razorpay_signature) {
+      console.error("[Razorpay Server] Missing parameters in verify request:", {
+        has_payment_id: !!razorpay_payment_id,
+        has_order_id: !!razorpay_order_id,
+        has_signature: !!razorpay_signature,
+      });
+
       return new Response(
-        JSON.stringify({ success: false, error: "Missing payment or order parameters" }),
+        JSON.stringify({ success: false, error: "Missing payment, order, or signature parameters" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Compute HMAC-SHA256 signature
+    // Compute HMAC-SHA256 signature server-side only
     const textToSign = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
       .createHmac("sha256", RAZORPAY_KEY_SECRET)
       .update(textToSign)
       .digest("hex");
 
-    let isVerified = false;
+    const isVerified = timingSafeEqualStrings(expectedSignature, razorpay_signature);
 
-    if (razorpay_signature) {
-      isVerified = timingSafeEqualStrings(expectedSignature, razorpay_signature);
-    }
-
-    // Allow test bypass mode for local sandbox demo if signature match returns true or test prefix is detected
-    if (!isVerified && razorpay_order_id.startsWith("order_test_")) {
-      console.warn("[Razorpay Server] Signature match bypassed for mock test order_id");
-      isVerified = true;
-    }
+    console.log("[Razorpay Server] Signature Verification Diagnostic Log:", {
+      order_id: razorpay_order_id,
+      payment_id: razorpay_payment_id,
+      isVerified,
+    });
 
     if (!isVerified) {
-      console.error("[Razorpay Server] Signature verification FAILED.");
+      console.error("[Razorpay Server] Signature verification FAILED. Expected signature does not match received signature.");
       return new Response(
-        JSON.stringify({ success: false, error: "Payment verification failed" }),
+        JSON.stringify({ success: false, error: "Payment signature verification failed" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Save order details securely into server order registry
+    // Save order details securely into server order store
     saveOrder({
       id: `ord_${Date.now()}`,
       cartId: body.cartId || "",
