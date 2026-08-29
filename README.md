@@ -32,6 +32,7 @@ npm run dev
 | `VITE_SHOPIFY_STORE_DOMAIN` | Frontend / Build | Shopify Storefront Domain (`spark-zen-2.myshopify.com`) |
 | `VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN` | Frontend / Build | Shopify Public Storefront API Access Token |
 | `VITE_SHOPIFY_STOREFRONT_API_VERSION` | Frontend / Build | Shopify Storefront API Version (`2026-07`) |
+| `SHOPIFY_ADMIN_API_ACCESS_TOKEN` | Server Only | Private Shopify Admin API Access Token with `draft_orders:write` & `orders:write` scopes for server-side order creation |
 | `RAZORPAY_KEY_ID` | Server Only | Public Razorpay Key ID |
 | `RAZORPAY_KEY_SECRET` | Server Only (NEVER expose to client) | Razorpay Secret Key for HMAC-SHA256 verification |
 | `RAZORPAY_WEBHOOK_SECRET` | Server Only | Webhook secret for verifying `X-Razorpay-Signature` |

@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { saveOrder } from "./server-order-store";
 import { shopifyFetchRaw, GET_CART_QUERY, type ShopifyCart } from "./shopify";
+import { createShopifyOrder } from "./shopify-admin";
 
 const RAZORPAY_KEY_ID =
   process.env["RAZORPAY_KEY_ID"] ||
@@ -156,7 +157,7 @@ export async function handleCreateRazorpayOrder(request: Request): Promise<Respo
   }
 }
 
-// 2. Verify Razorpay Payment Signature Endpoint Handler
+// 2. Verify Razorpay Payment Signature Endpoint Handler & Execute Shopify Order Creation
 export async function handleVerifyRazorpayPayment(request: Request): Promise<Response> {
   if (request.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
@@ -174,9 +175,12 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
       amount?: number;
       customer?: {
         name?: string;
+        firstName?: string;
+        lastName?: string;
         email?: string;
         phone?: string;
         address?: string;
+        apartment?: string;
         city?: string;
         state?: string;
         pinCode?: string;
@@ -222,6 +226,53 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
       );
     }
 
+    // Fetch line items from Shopify cart if cartId exists
+    let lineItems: Array<{ variantId: string; quantity: number; title?: string; price?: number }> = [];
+
+    if (body.cartId) {
+      const shopifyRes = await shopifyFetchRaw<{ cart: ShopifyCart | null }>({
+        query: GET_CART_QUERY,
+        variables: { cartId: body.cartId },
+      });
+      const cartNodes = shopifyRes.data?.cart?.lines?.nodes || [];
+      lineItems = cartNodes.map((node) => ({
+        variantId: node.merchandise.id,
+        quantity: node.quantity,
+        title: node.merchandise.product?.title || node.merchandise.title,
+        price: parseFloat(node.merchandise.price.amount),
+      }));
+    }
+
+    // Diagnostic transaction summary log
+    const nameParts = (body.customer?.name || "").split(" ");
+    const firstName = body.customer?.firstName || nameParts[0] || "Customer";
+    const lastName = body.customer?.lastName || nameParts.slice(1).join(" ") || "Valued";
+
+    console.log("[Transaction Diagnostic] Verified Payment Summary:", {
+      razorpay_payment_id,
+      razorpay_order_id,
+      payment_status: "PAID",
+      total_amount: body.amount || 0,
+      customer: {
+        email: body.customer?.email,
+        phone: body.customer?.phone,
+        name: `${firstName} ${lastName}`,
+      },
+      shipping_address: {
+        address: body.customer?.address,
+        city: body.customer?.city,
+        state: body.customer?.state,
+        pinCode: body.customer?.pinCode,
+        country: body.customer?.country || "India",
+      },
+      line_items: lineItems.map((item) => ({
+        variantId: item.variantId,
+        title: item.title,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    });
+
     // Save order details securely into server order store
     saveOrder({
       id: `ord_${Date.now()}`,
@@ -231,7 +282,7 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
       amount: body.amount || 0,
       currency: "INR",
       customer: {
-        name: body.customer?.name || "Customer",
+        name: `${firstName} ${lastName}`,
         email: body.customer?.email || "",
         phone: body.customer?.phone || "",
         address: body.customer?.address,
@@ -244,14 +295,44 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
       createdAt: new Date().toISOString(),
     });
 
-    console.log(`[Razorpay Server] Payment VERIFIED for Order ${razorpay_order_id}, Payment ${razorpay_payment_id}`);
+    // Execute Shopify Order Creation mutation via Shopify Admin API
+    let shopifyOrderResult = null;
+    if (lineItems.length > 0) {
+      shopifyOrderResult = await createShopifyOrder({
+        email: body.customer?.email || "",
+        phone: body.customer?.phone,
+        firstName,
+        lastName,
+        address: body.customer?.address,
+        apartment: body.customer?.apartment,
+        city: body.customer?.city,
+        state: body.customer?.state,
+        pinCode: body.customer?.pinCode,
+        country: body.customer?.country,
+        lineItems,
+        razorpayPaymentId: razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+        totalAmount: body.amount || 0,
+        currencyCode: "INR",
+      });
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+      console.log("[Transaction Diagnostic] Shopify Order Mutation Result:", shopifyOrderResult);
+    } else {
+      console.warn("[Shopify Order Creation] Cart line items were empty; skipping Shopify Order creation mutation.");
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        shopifyOrder: shopifyOrderResult,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   } catch (error) {
-    console.error("[Razorpay Server] Exception during signature verification:", error);
+    console.error("[Razorpay Server] Exception during signature verification / order creation:", error);
     return new Response(
       JSON.stringify({ success: false, error: "Payment verification error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
