@@ -410,9 +410,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      if (checkoutUrl && isValidCustomerCheckoutUrl(checkoutUrl)) {
-        window.location.assign(checkoutUrl);
-      } else {
+     if (checkoutUrl && isValidCustomerCheckoutUrl(checkoutUrl)) {
+  console.log("🔥 ACTUAL SHOPIFY CHECKOUT URL:", checkoutUrl);
+  window.location.assign(checkoutUrl);
+}else {
         toast.error(
           "Checkout URL currently unavailable. Verify your Storefront API credentials."
         );
