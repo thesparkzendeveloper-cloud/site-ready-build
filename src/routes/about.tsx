@@ -153,7 +153,7 @@ function About() {
           to="/shop"
           className="inline-flex items-center gap-2 rounded-full bg-ink px-7 py-3.5 text-sm font-bold text-ink-foreground"
         >
-          Shop the Collection <ArrowRight className="h-4 w-4" />
+          Shop Now <ArrowRight className="h-4 w-4" />
         </Link>
       </section>
     </SiteLayout>

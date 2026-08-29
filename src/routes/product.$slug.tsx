@@ -1,4 +1,4 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Star, ShoppingCart, Truck, RefreshCw, ShieldCheck, Plus } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
@@ -121,6 +121,8 @@ function ProductPage() {
     });
   };
 
+  const navigate = useNavigate();
+
   const handleBuyNow = async () => {
     if (!isAvailable) {
       toast.error("This product variant is currently out of stock.");
@@ -144,7 +146,7 @@ function ProductPage() {
         { name: "Color", value: selectedColor },
       ],
     });
-    checkout();
+    navigate({ to: "/checkout" });
   };
 
   const bundle = fallbackProducts.filter((p) => p.slug !== product.slug).slice(0, 3);

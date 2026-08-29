@@ -6,8 +6,6 @@ import { useCart } from "@/context/CartContext";
 
 const nav = [
   { label: "Shop", to: "/shop" },
-  { label: "New In", to: "/shop" },
-  { label: "Collections", to: "/shop" },
   { label: "About Us", to: "/about" },
   { label: "Contact", to: "/contact" },
 ];

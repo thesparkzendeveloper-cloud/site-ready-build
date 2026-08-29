@@ -163,14 +163,14 @@ export function CartDrawer() {
                 </div>
               </div>
 
-              <button
-                onClick={checkout}
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg transition-transform hover:scale-[1.02] disabled:opacity-50"
+              <Link
+                to="/checkout"
+                onClick={() => setIsCartOpen(false)}
+                className="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-bold text-primary-foreground shadow-lg transition-transform hover:scale-[1.02]"
                 style={{ boxShadow: "var(--shadow-glow)" }}
               >
                 Checkout <ArrowRight className="h-4 w-4" />
-              </button>
+              </Link>
             </div>
           </div>
         )}
