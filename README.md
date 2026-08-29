@@ -22,3 +22,19 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Environment Variables Configuration
+
+### Local Development (`.env` / `.env.local`) & Vercel Production
+
+| Variable Name | Scope | Description |
+| --- | --- | --- |
+| `VITE_SHOPIFY_STORE_DOMAIN` | Frontend / Build | Shopify Storefront Domain (`spark-zen-2.myshopify.com`) |
+| `VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN` | Frontend / Build | Shopify Public Storefront API Access Token |
+| `VITE_SHOPIFY_STOREFRONT_API_VERSION` | Frontend / Build | Shopify Storefront API Version (`2026-07`) |
+| `RAZORPAY_KEY_ID` | Server Only | Public Razorpay Key ID |
+| `RAZORPAY_KEY_SECRET` | Server Only (NEVER expose to client) | Razorpay Secret Key for HMAC-SHA256 verification |
+| `RAZORPAY_WEBHOOK_SECRET` | Server Only | Webhook secret for verifying `X-Razorpay-Signature` |
+
+> ⚠️ **Security Warning:** `RAZORPAY_KEY_SECRET` and `RAZORPAY_WEBHOOK_SECRET` must **NEVER** be prefixed with `VITE_` or exposed in client-side code bundles. Add them exclusively to server environment variables in Vercel.
+

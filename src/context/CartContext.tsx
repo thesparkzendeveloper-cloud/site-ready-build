@@ -49,6 +49,7 @@ interface CartContextType {
   updateQuantity: (lineId: string, quantity: number) => Promise<void>;
   removeFromCart: (lineId: string) => Promise<void>;
   checkout: () => Promise<void>;
+  clearCart: () => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -429,6 +430,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+  const clearCart = () => {
+    setCart([]);
+    setCartId(null);
+    setCheckoutUrl(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(LOCAL_CART_KEY);
+      localStorage.removeItem(LOCAL_ITEMS_KEY);
+    }
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -447,6 +458,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateQuantity,
         removeFromCart,
         checkout,
+        clearCart,
       }}
     >
       {children}

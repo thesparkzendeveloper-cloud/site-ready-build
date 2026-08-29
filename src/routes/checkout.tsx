@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import {
   ShoppingBag,
   Plus,
@@ -13,12 +13,15 @@ import {
   ArrowLeft,
   Tag,
   CreditCard,
+  AlertCircle,
+  RotateCcw,
 } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { useCart } from "@/context/CartContext";
 import { formatPrice } from "@/lib/products";
 import { toast } from "sonner";
+import type { RazorpayOptions, RazorpayPaymentResponse } from "@/types/razorpay";
 
 export const Route = createFileRoute("/checkout")({
   head: () => ({
@@ -33,17 +36,36 @@ export const Route = createFileRoute("/checkout")({
   component: CheckoutPage,
 });
 
+// Helper function to load Razorpay official SDK dynamically
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
 function CheckoutPage() {
+  const navigate = useNavigate();
   const {
     cart,
+    cartId,
     totalQuantity,
     subtotal,
     currencyCode,
     updateQuantity,
     removeFromCart,
-    checkout,
-    isLoading,
+    clearCart,
   } = useCart();
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentCancelled, setPaymentCancelled] = useState(false);
 
   // Delivery & Contact Form State
   const [formData, setFormData] = useState({
@@ -59,6 +81,11 @@ function CheckoutPage() {
     country: "India",
   });
 
+  // Preload Razorpay script on mount
+  useEffect(() => {
+    loadRazorpayScript();
+  }, []);
+
   // Discount code state
   const [discountCode, setDiscountCode] = useState("");
   const [appliedCodeMsg, setAppliedCodeMsg] = useState<string | null>(null);
@@ -71,16 +98,139 @@ function CheckoutPage() {
   const handleApplyDiscount = (e: React.FormEvent) => {
     e.preventDefault();
     if (!discountCode.trim()) return;
-    setAppliedCodeMsg(`Code "${discountCode.toUpperCase()}" entered. Discount codes are applied at Shopify checkout.`);
-    toast.info("Discount codes are verified and applied at Shopify checkout.");
+    setAppliedCodeMsg(`Code "${discountCode.toUpperCase()}" entered. Discount codes are verified at checkout.`);
+    toast.info("Discount codes are verified and applied during final processing.");
   };
 
-  const handleProceedToCheckout = () => {
+  const handleProceedToCheckout = async () => {
     if (cart.length === 0) {
       toast.error("Your cart is empty. Add products before checking out.");
       return;
     }
-    checkout();
+
+    if (!formData.email.trim() || !formData.phone.trim() || !formData.firstName.trim()) {
+      toast.error("Please enter your contact email, phone number, and first name.");
+      return;
+    }
+
+    setIsProcessing(true);
+    setPaymentCancelled(false);
+
+    try {
+      // 1. Call server API to create Razorpay Order
+      const res = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: subtotal,
+          cartId: cartId || "",
+          customer: {
+            name: `${formData.firstName} ${formData.lastName}`.trim(),
+            email: formData.email,
+            phone: formData.phone,
+          },
+        }),
+      });
+
+      const data = (await res.json()) as {
+        success?: boolean;
+        orderId?: string;
+        amount?: number;
+        currency?: string;
+        keyId?: string;
+        error?: string;
+      };
+
+      if (!res.ok || !data.success || !data.orderId) {
+        toast.error(data.error || "Failed to initialize payment gateway.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Ensure Razorpay SDK is ready
+      const sdkReady = await loadRazorpayScript();
+      if (!sdkReady || !window.Razorpay) {
+        toast.error("Razorpay SDK failed to load. Please check your network.");
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2. Open Razorpay Standard Checkout
+      const options: RazorpayOptions = {
+        key: data.keyId || "rzp_test_sparkzen123",
+        amount: data.amount || Math.round(subtotal * 100),
+        currency: data.currency || "INR",
+        name: "Spark Zen",
+        description: "Spark Zen Clothing Order",
+        order_id: data.orderId,
+        prefill: {
+          name: `${formData.firstName} ${formData.lastName}`.trim() || "Customer",
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: {
+          color: "#e11d48", // SparkZen red accent
+        },
+        handler: async function (response: RazorpayPaymentResponse) {
+          try {
+            toast.loading("Verifying payment signature...", { id: "verify-toast" });
+
+            // 3. Send response to server for HMAC-SHA256 signature verification
+            const verifyRes = await fetch("/api/razorpay/verify-payment", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                cartId: cartId || "",
+                amount: subtotal,
+                customer: formData,
+              }),
+            });
+
+            const verifyData = (await verifyRes.json()) as { success?: boolean; error?: string };
+            toast.dismiss("verify-toast");
+
+            if (verifyRes.ok && verifyData.success) {
+              toast.success("Payment verified successfully!");
+              clearCart();
+              navigate({
+                to: "/order-success",
+                search: {
+                  payment_id: response.razorpay_payment_id,
+                  order_id: response.razorpay_order_id,
+                  amount: subtotal,
+                  currency: currencyCode,
+                },
+              });
+            } else {
+              toast.error(verifyData.error || "Payment signature verification failed.");
+            }
+          } catch (err) {
+            console.error("Verification Error:", err);
+            toast.dismiss("verify-toast");
+            toast.error("An error occurred during payment verification.");
+          } finally {
+            setIsProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            setIsProcessing(false);
+            setPaymentCancelled(true);
+            toast.info("Payment was not completed.");
+          },
+        },
+      };
+
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.open();
+    } catch (err) {
+      console.error("Checkout Exception:", err);
+      toast.error("Network error while connecting to payment gateway.");
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -89,12 +239,39 @@ function CheckoutPage() {
 
       {/* Checkout Hero Title */}
       <header className="panel-ink mt-4 rounded-2xl px-6 py-8">
-        <p className="eyebrow">Order Review</p>
+        <p className="eyebrow">Order Review & Payment</p>
         <h1 className="mt-2 text-3xl text-ink-foreground sm:text-4xl">Checkout</h1>
         <p className="mt-2 max-w-lg text-sm text-ink-muted">
-          Complete your order details securely before proceeding to final payment.
+          Review your cart items and complete your order with Razorpay Standard Checkout.
         </p>
       </header>
+
+      {/* Payment Cancelled Alert Banner */}
+      {paymentCancelled && (
+        <div className="mt-6 surface-card rounded-2xl p-5 border-2 border-amber-500/50 bg-amber-500/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+            <div>
+              <p className="text-sm font-bold text-foreground">Payment was not completed.</p>
+              <p className="text-xs text-muted-foreground">Your cart items are saved. You can try payment again or edit your order.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleProceedToCheckout}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:scale-105 transition-transform"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Try Again
+            </button>
+            <Link
+              to="/shop"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-bold text-foreground hover:bg-muted"
+            >
+              Back to Shop
+            </Link>
+          </div>
+        </div>
+      )}
 
       {cart.length === 0 ? (
         /* Empty Cart State */
@@ -117,57 +294,6 @@ function CheckoutPage() {
       ) : (
         /* Main Checkout Layout */
         <div className="mt-8 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          {/* Mobile Order Summary (shown first on mobile for easy scan) */}
-          <div className="lg:hidden surface-card rounded-2xl p-6 border border-border space-y-6">
-            <div className="flex items-center justify-between border-b border-border pb-4">
-              <h2 className="text-lg font-bold text-foreground">Order Summary</h2>
-              <span className="text-xs font-bold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                {totalQuantity} {totalQuantity === 1 ? "item" : "items"}
-              </span>
-            </div>
-
-            {/* Product items */}
-            <div className="space-y-4 max-h-80 overflow-y-auto pr-1">
-              {cart.map((item) => (
-                <div key={item.id} className="flex gap-4 items-center justify-between border-b border-border/50 pb-3">
-                  <div className="flex gap-3 items-center">
-                    <img src={item.image} alt={item.title} className="h-14 w-12 rounded-lg object-cover bg-muted" />
-                    <div>
-                      <p className="text-xs font-bold line-clamp-1">{item.title}</p>
-                      {item.selectedOptions && item.selectedOptions.length > 0 && (
-                        <p className="text-[11px] text-muted-foreground">
-                          {item.selectedOptions
-                            .filter((o) => o.value !== "Title" && o.value !== "Default Title")
-                            .map((o) => `${o.name}: ${o.value}`)
-                            .join(" · ")}
-                        </p>
-                      )}
-                      <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
-                    </div>
-                  </div>
-                  <span className="text-xs font-extrabold text-primary">
-                    {formatPrice(item.price * item.quantity, item.currencyCode || currencyCode)}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2 text-sm pt-2 border-t border-border">
-              <div className="flex justify-between text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="font-extrabold text-foreground">{formatPrice(subtotal, currencyCode)}</span>
-              </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Shipping</span>
-                <span className="text-primary font-semibold">Free</span>
-              </div>
-              <div className="flex justify-between text-base font-extrabold pt-2 border-t border-border">
-                <span>Total</span>
-                <span className="text-primary text-lg">{formatPrice(subtotal, currencyCode)}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Left Column: Contact & Delivery Information */}
           <div className="space-y-6">
             {/* Contact Information */}
@@ -339,25 +465,25 @@ function CheckoutPage() {
               </div>
             </section>
 
-            {/* Payment Info Note */}
+            {/* Payment Section Note */}
             <section className="surface-card rounded-2xl p-6 border border-border space-y-3">
               <h2 className="text-base font-extrabold uppercase tracking-[0.12em] text-foreground flex items-center gap-2">
                 <span className="grid h-6 w-6 place-items-center rounded-full bg-primary/10 text-xs text-primary font-bold">4</span>
-                Payment
+                Payment Method
               </h2>
               <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-4">
                 <CreditCard className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-foreground">Secure Payment via Shopify & Razorpay</p>
+                  <p className="text-sm font-bold text-foreground">Razorpay Standard Checkout (UPI, Cards, NetBanking, Wallets)</p>
                   <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    Your payment details are encrypted and securely processed directly on Shopify's official hosted checkout page.
+                    Clicking "Proceed to Secure Checkout" will open Razorpay's official checkout popup directly. Your signature will be verified server-side via HMAC-SHA256.
                   </p>
                 </div>
               </div>
             </section>
           </div>
 
-          {/* Right Column: Order Summary & Actions (Desktop & Mobile sticky) */}
+          {/* Right Column: Order Summary & Actions (Desktop & Mobile) */}
           <div className="space-y-6">
             <div className="surface-card rounded-2xl p-6 border border-border space-y-6 lg:sticky lg:top-24">
               <div className="flex items-center justify-between border-b border-border pb-4">
@@ -380,7 +506,7 @@ function CheckoutPage() {
                           <button
                             onClick={() => removeFromCart(item.id)}
                             aria-label="Remove item"
-                            className="text-muted-foreground hover:text-destructive transition-colors p-1"
+                            className="text-muted-foreground hover:text-destructive transition-colors p-1 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -467,20 +593,20 @@ function CheckoutPage() {
               <div className="space-y-3 pt-2">
                 <button
                   onClick={handleProceedToCheckout}
-                  disabled={isLoading || cart.length === 0}
+                  disabled={isProcessing || cart.length === 0}
                   className="w-full flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-4 text-base font-bold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
                   style={{ boxShadow: "var(--shadow-glow)" }}
                 >
-                  {isLoading ? "Processing..." : "Proceed to Secure Checkout →"}
+                  {isProcessing ? "Connecting to Razorpay..." : "Proceed to Secure Checkout →"}
                 </button>
 
                 {/* Trust Badges */}
                 <div className="rounded-xl bg-muted/40 p-3.5 text-center space-y-2">
                   <div className="flex items-center justify-center gap-2 text-xs font-bold text-foreground">
                     <Lock className="h-3.5 w-3.5 text-primary" />
-                    <span>Secure Checkout</span>
+                    <span>Razorpay Secure Checkout</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Your payment is securely processed by Shopify.</p>
+                  <p className="text-[11px] text-muted-foreground">Your payment is encrypted and verified server-side.</p>
 
                   <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground pt-2 border-t border-border/50">
                     <span className="flex items-center gap-1">
