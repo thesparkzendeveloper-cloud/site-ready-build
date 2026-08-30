@@ -690,9 +690,6 @@ function CheckoutPage() {
                     <span className="flex items-center gap-1">
                       <Truck className="h-3.5 w-3.5 text-primary" /> Express Dispatch
                     </span>
-                    <span className="flex items-center gap-1">
-                      <RefreshCw className="h-3.5 w-3.5 text-primary" /> Easy Returns
-                    </span>
                   </div>
                 </div>
 

@@ -313,10 +313,9 @@ function ProductPage() {
             </button>
           </div>
 
-          <ul className="mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
+          <ul className="mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
             {[
               [Truck, "Free shipping over ₹999"],
-              [RefreshCw, "7-day easy returns"],
               [ShieldCheck, "100% authentic"],
             ].map(([Icon, text], i) => {
               const I = Icon as typeof Truck;

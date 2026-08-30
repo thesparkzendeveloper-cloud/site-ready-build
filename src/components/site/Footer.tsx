@@ -25,7 +25,7 @@ const columns = [
     links: [
       "Customer Support",
       "Track Your Order",
-      "Returns & Refunds",
+      "Returns & Support",
       "Terms & Conditions",
       "Privacy Policy",
     ],
