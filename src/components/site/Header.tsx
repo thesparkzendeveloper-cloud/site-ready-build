@@ -5,10 +5,11 @@ import { Logo } from "./Logo";
 import { useCart } from "@/context/CartContext";
 
 const nav = [
+  { label: "Home", to: "/" },
   { label: "Shop", to: "/shop" },
-  { label: "Customization", to: "/customization" },
   { label: "About Us", to: "/about" },
   { label: "Contact", to: "/contact" },
+  { label: "Customization", to: "/customization" },
 ];
 
 export function Header() {
