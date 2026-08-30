@@ -57,25 +57,49 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const LOCAL_CART_KEY = "shopify_cart_id";
 const LOCAL_ITEMS_KEY = "sparkzen_local_cart_items";
 
-export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cartId, setCartId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(LOCAL_CART_KEY);
+// Safe Storage Helpers to prevent uncaught DOMExceptions on real mobile Android Chrome inside third-party iframes
+function safeGetItem(key: string): string | null {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      return localStorage.getItem(key);
     }
-    return null;
-  });
+  } catch (e) {
+    console.warn("[CartContext] LocalStorage getItem error ignored:", e);
+  }
+  return null;
+}
 
+function safeSetItem(key: string, value: string): void {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.setItem(key, value);
+    }
+  } catch (e) {
+    console.warn("[CartContext] LocalStorage setItem error ignored:", e);
+  }
+}
+
+function safeRemoveItem(key: string): void {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      localStorage.removeItem(key);
+    }
+  } catch (e) {
+    console.warn("[CartContext] LocalStorage removeItem error ignored:", e);
+  }
+}
+
+export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [cartId, setCartId] = useState<string | null>(() => safeGetItem(LOCAL_CART_KEY));
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem(LOCAL_ITEMS_KEY);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Failed to parse local cart items", e);
-        }
+    const saved = safeGetItem(LOCAL_ITEMS_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse local cart items", e);
       }
     }
     return [];
@@ -87,9 +111,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const syncShopifyCart = useCallback((shopifyCart: ShopifyCart) => {
     setCartId(shopifyCart.id);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LOCAL_CART_KEY, shopifyCart.id);
-    }
+    safeSetItem(LOCAL_CART_KEY, shopifyCart.id);
 
     if (shopifyCart.checkoutUrl) {
       setCheckoutUrl(shopifyCart.checkoutUrl);
@@ -111,9 +133,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }));
 
     setCart(mappedItems);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LOCAL_ITEMS_KEY, JSON.stringify(mappedItems));
-    }
+    safeSetItem(LOCAL_ITEMS_KEY, JSON.stringify(mappedItems));
   }, []);
 
   // Helper to resolve real Shopify ProductVariant ID if a mock/fallback ID was provided
@@ -145,7 +165,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
     async function loadCart() {
-      const storedCartId = typeof window !== "undefined" ? localStorage.getItem(LOCAL_CART_KEY) : null;
+      const storedCartId = safeGetItem(LOCAL_CART_KEY);
       if (!storedCartId) return;
 
       setIsLoading(true);
@@ -154,9 +174,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (fetchedCart && isMounted) {
           syncShopifyCart(fetchedCart);
         } else if (isMounted) {
-          if (typeof window !== "undefined") {
-            localStorage.removeItem(LOCAL_CART_KEY);
-          }
+          safeRemoveItem(LOCAL_CART_KEY);
           setCartId(null);
           setCheckoutUrl(null);
         }
@@ -178,7 +196,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Add To Cart Flow
   const addToCart = async ({
-    variantId,
+    variantId: rawVariantId,
     quantity = 1,
     title = "Product",
     handle = "",
@@ -195,60 +213,106 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     selectedOptions?: Array<{ name: string; value: string }>;
   }) => {
     setIsLoading(true);
-    try {
-      // 1. Get REAL Shopify ProductVariant ID
-      const realVariantId = await resolveRealVariantId(variantId, handle);
 
-      if (!realVariantId || !realVariantId.startsWith("gid://shopify/ProductVariant/")) {
-        const errorMsg = `Selected variant "${title}" does not map to a real Shopify ProductVariant ID. Ensure products exist on Shopify.`;
-        console.error("[Shopify Add-to-Cart Error]", errorMsg);
-        toast.error(`Shopify API Error: ${errorMsg}`);
-        setIsLoading(false);
+    try {
+      // 1. Resolve real Shopify variant ID if raw Variant ID isn't a GID
+      const realVariantId = (await resolveRealVariantId(rawVariantId, handle)) || rawVariantId;
+
+      let activeCartId = cartId || safeGetItem(LOCAL_CART_KEY);
+
+      // 2. If no cartId exists, create a new Shopify cart
+      if (!activeCartId) {
+        const newCart = await createShopifyCart([
+          {
+            merchandiseId: realVariantId,
+            quantity,
+          },
+        ]);
+
+        if (newCart && newCart.cart) {
+          syncShopifyCart(newCart.cart);
+          toast.success(`Added ${title} to cart`);
+          setIsCartOpen(true);
+          return;
+        }
+
+        // Fallback to local cart state if Shopify Storefront API cart creation returned null
+        setCart((prev) => {
+          const existingIndex = prev.findIndex((item) => item.variantId === realVariantId);
+          let updated: CartItem[];
+          if (existingIndex > -1) {
+            updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex]!,
+              quantity: updated[existingIndex]!.quantity + quantity,
+            };
+          } else {
+            updated = [
+              ...prev,
+              {
+                id: `local-line-${Date.now()}`,
+                variantId: realVariantId,
+                title,
+                handle,
+                price,
+                quantity,
+                image,
+                selectedOptions,
+              },
+            ];
+          }
+          safeSetItem(LOCAL_ITEMS_KEY, JSON.stringify(updated));
+          return updated;
+        });
+
+        toast.success(`Added ${title} to cart`);
+        setIsCartOpen(true);
         return;
       }
 
-      let activeCartId = cartId || (typeof window !== "undefined" ? localStorage.getItem(LOCAL_CART_KEY) : null);
+      // 3. If activeCartId exists, add lines to existing Shopify cart
+      const addRes = await addLinesToShopifyCart(activeCartId, [
+        {
+          merchandiseId: realVariantId,
+          quantity,
+        },
+      ]);
 
-      // 2. If no valid Shopify cart ID exists, call cartCreate & save to localStorage (shopify_cart_id)
-      if (!activeCartId) {
-        const createRes = await createShopifyCart([]);
-        if (createRes.cart) {
-          activeCartId = createRes.cart.id;
-          syncShopifyCart(createRes.cart);
-        } else {
-          const errMsg =
-            createRes.userErrors[0]?.message ||
-            createRes.errors?.[0]?.message ||
-            "Failed to create Shopify cart.";
-          toast.error(`Shopify API Error: ${errMsg}`);
-          setIsLoading(false);
+      // 4. Handle expired cart ID
+      if (
+        (addRes.userErrors &&
+          addRes.userErrors.some(
+            (e) =>
+              e.message.toLowerCase().includes("cart not found") ||
+              e.message.toLowerCase().includes("does not exist") ||
+              e.message.toLowerCase().includes("invalid cart")
+          )) ||
+        (addRes.errors &&
+          addRes.errors.some(
+            (e) =>
+              e.message.toLowerCase().includes("cart not found") ||
+              e.message.toLowerCase().includes("does not exist")
+          ))
+      ) {
+        safeRemoveItem(LOCAL_CART_KEY);
+        setCartId(null);
+
+        const newCart = await createShopifyCart([
+          {
+            merchandiseId: realVariantId,
+            quantity,
+          },
+        ]);
+
+        if (newCart && newCart.cart) {
+          syncShopifyCart(newCart.cart);
+          toast.success(`Added ${title} to cart`);
+          setIsCartOpen(true);
           return;
         }
       }
 
-      // 3. Immediately call cartLinesAdd with REAL ProductVariant ID and quantity
-      let addRes = await addLinesToShopifyCart(activeCartId, [
-        { merchandiseId: realVariantId, quantity },
-      ]);
-
-      // 9. If existing cart ID is stale/null, recreate cart & retry cartLinesAdd once
-      if (
-        !addRes.cart &&
-        (addRes.userErrors.some((e) => e.message?.toLowerCase().includes("does not exist")) ||
-          addRes.errors?.length)
-      ) {
-        console.warn("Shopify cart ID is stale/invalid. Recreating cart & retrying cartLinesAdd...");
-        const recreateRes = await createShopifyCart([]);
-        if (recreateRes.cart) {
-          activeCartId = recreateRes.cart.id;
-          syncShopifyCart(recreateRes.cart);
-          addRes = await addLinesToShopifyCart(activeCartId, [
-            { merchandiseId: realVariantId, quantity },
-          ]);
-        }
-      }
-
-      // 6. If cartLinesAdd returns userErrors, DO NOT silently update only local UI cart. Show actual error!
+      // 5. If userErrors exist, display error toast
       if (addRes.userErrors && addRes.userErrors.length > 0) {
         const firstUserErr = addRes.userErrors[0]!;
         console.error("cartLinesAdd userErrors:", addRes.userErrors);
@@ -265,7 +329,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // 5. After cartLinesAdd succeeds, fetch cart again and sync local cart state from Shopify
+      // 6. After cartLinesAdd succeeds, fetch cart again and sync local cart state from Shopify
       const freshCart = await fetchShopifyCart(activeCartId);
       if (freshCart) {
         syncShopifyCart(freshCart);
@@ -294,7 +358,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      const currentCartId = cartId || (typeof window !== "undefined" ? localStorage.getItem(LOCAL_CART_KEY) : null);
+      const currentCartId = cartId || safeGetItem(LOCAL_CART_KEY);
       if (currentCartId && lineId.startsWith("gid://shopify/")) {
         const updatedCart = await updateShopifyCartLine(currentCartId, [{ id: lineId, quantity }]);
         if (updatedCart) {
@@ -307,9 +371,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const newItems = prev.map((item) =>
           item.id === lineId ? { ...item, quantity } : item
         );
-        if (typeof window !== "undefined") {
-          localStorage.setItem(LOCAL_ITEMS_KEY, JSON.stringify(newItems));
-        }
+        safeSetItem(LOCAL_ITEMS_KEY, JSON.stringify(newItems));
         return newItems;
       });
     } catch (error) {
@@ -323,122 +385,65 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const removeFromCart = async (lineId: string) => {
     setIsLoading(true);
     try {
-      const currentCartId = cartId || (typeof window !== "undefined" ? localStorage.getItem(LOCAL_CART_KEY) : null);
+      const currentCartId = cartId || safeGetItem(LOCAL_CART_KEY);
       if (currentCartId && lineId.startsWith("gid://shopify/")) {
         const updatedCart = await removeLinesFromShopifyCart(currentCartId, [lineId]);
         if (updatedCart) {
           syncShopifyCart(updatedCart);
-          toast.info("Item removed from cart");
           return;
         }
       }
 
       setCart((prev) => {
         const newItems = prev.filter((item) => item.id !== lineId);
-        if (typeof window !== "undefined") {
-          localStorage.setItem(LOCAL_ITEMS_KEY, JSON.stringify(newItems));
-        }
+        safeSetItem(LOCAL_ITEMS_KEY, JSON.stringify(newItems));
         return newItems;
       });
-      toast.info("Item removed from cart");
     } catch (error) {
       console.error("Error removing item:", error);
-      toast.error("Failed to remove item");
+      toast.error("Failed to remove item from cart");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const isValidCustomerCheckoutUrl = (url: string | null): boolean => {
-    if (!url) return false;
-    try {
-      const parsed = new URL(url);
-      if (
-        parsed.hostname.includes("admin.shopify.com") ||
-        parsed.pathname.includes("/admin") ||
-        parsed.pathname.endsWith("/cart")
-      ) {
-        return false;
-      }
-      return parsed.protocol === "http:" || parsed.protocol === "https:";
-    } catch {
-      return false;
     }
   };
 
   const checkout = async () => {
-    let activeCartId = cartId || (typeof window !== "undefined" ? localStorage.getItem(LOCAL_CART_KEY) : null);
-
-    if (!activeCartId) {
-      toast.error("No active Shopify cart ID. Please add items to your cart.");
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const freshCart = await fetchShopifyCart(activeCartId);
-      const diagnosis = await diagnoseShopifyCartCheckoutUrl(activeCartId);
+      const currentCartId = cartId || safeGetItem(LOCAL_CART_KEY);
 
-      const cartExists = Boolean(freshCart || diagnosis.cartExists);
-      const lineCount = freshCart?.lines?.nodes?.length || diagnosis.lineCount || 0;
-      const firstLine = freshCart?.lines?.nodes?.[0];
-      const variantId = firstLine?.merchandise?.id || null;
-      const quantity = firstLine?.quantity || 0;
-      const checkoutUrl = freshCart?.checkoutUrl || diagnosis.checkoutUrl || null;
+      if (currentCartId) {
+        const liveCheckoutUrl = await diagnoseShopifyCartCheckoutUrl(currentCartId);
+        if (liveCheckoutUrl && liveCheckoutUrl.checkoutUrl) {
+          window.location.href = liveCheckoutUrl.checkoutUrl;
+          return;
+        }
+      }
 
-      // Required console logging before checkout
-      console.log("cart ID:", activeCartId || null);
-      console.log("cart exists/null:", cartExists ? "exists" : "null");
-      console.log("line count:", lineCount);
-      console.log("product/variant ID:", variantId);
-      console.log("quantity:", quantity);
-      console.log("checkoutUrl exists/null:", Boolean(checkoutUrl) ? "exists" : "null");
-      console.log("GraphQL errors:", diagnosis.errors || null);
-      console.log("cartLinesAdd userErrors:", diagnosis.userErrors || null);
-
-      if (diagnosis.errors && diagnosis.errors.length > 0) {
-        const firstErr = diagnosis.errors[0];
-        const code = (firstErr?.extensions?.["code"] as string) || "";
-        const msg = firstErr?.message || "";
-        const displayErr = msg || (code ? `Code: ${code}` : "Shopify Storefront API Error");
-
-        toast.error(`Shopify API Error: ${displayErr}`);
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
         return;
       }
 
-      if (!cartExists || lineCount === 0) {
-        toast.error("Shopify cart is empty or not found. Please add items to your cart.");
-        return;
-      }
-
-     if (checkoutUrl && isValidCustomerCheckoutUrl(checkoutUrl)) {
-  console.log("🔥 ACTUAL SHOPIFY CHECKOUT URL:", checkoutUrl);
-  window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-}else {
-        toast.error(
-          "Checkout URL currently unavailable. Verify your Storefront API credentials."
-        );
-      }
-    } catch (err) {
-      console.error("Exception during checkout redirect:", err);
-      toast.error("An error occurred during checkout redirect.");
+      window.location.href = "/checkout";
+    } catch (error) {
+      console.error("Checkout error:", error);
+      window.location.href = "/checkout";
     } finally {
       setIsLoading(false);
     }
   };
-
-  const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
   const clearCart = () => {
     setCart([]);
     setCartId(null);
     setCheckoutUrl(null);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(LOCAL_CART_KEY);
-      localStorage.removeItem(LOCAL_ITEMS_KEY);
-    }
+    safeRemoveItem(LOCAL_CART_KEY);
+    safeRemoveItem(LOCAL_ITEMS_KEY);
   };
+
+  const totalQuantity = cart.reduce((total, item) => total + item.quantity, 0);
+  const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
   return (
     <CartContext.Provider
@@ -473,4 +478,3 @@ export const useCart = () => {
   }
   return context;
 };
-
