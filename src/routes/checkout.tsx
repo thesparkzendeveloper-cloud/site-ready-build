@@ -173,9 +173,28 @@ function CheckoutPage() {
         },
         handler: async function (response: RazorpayPaymentResponse) {
           try {
+            console.log("[Razorpay Success Handler] Payment response received:", {
+              payment_id_exists: !!response.razorpay_payment_id,
+              order_id_exists: !!response.razorpay_order_id,
+              signature_exists: !!response.razorpay_signature,
+            });
+
+            if (!response.razorpay_payment_id || !response.razorpay_order_id || !response.razorpay_signature) {
+              toast.error("Payment verification failed. Please contact support.");
+              setIsProcessing(false);
+              return;
+            }
+
             toast.loading("Verifying payment signature...", { id: "verify-toast" });
 
-            // 3. Send response to server for HMAC-SHA256 signature verification
+            const cartItemsPayload = cart.map((item) => ({
+              variantId: item.variantId,
+              quantity: item.quantity,
+              title: item.title,
+              price: item.price,
+            }));
+
+            // 3. Send response to server for HMAC-SHA256 signature verification & order creation
             const verifyRes = await fetch("/api/razorpay/verify-payment", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -186,31 +205,64 @@ function CheckoutPage() {
                 cartId: cartId || "",
                 amount: subtotal,
                 customer: formData,
+                lineItems: cartItemsPayload,
               }),
             });
 
-            const verifyData = (await verifyRes.json()) as { success?: boolean; error?: string };
+            const httpStatus = verifyRes.status;
+            const verifyData = (await verifyRes.json().catch(() => ({}))) as {
+              success?: boolean;
+              error?: string;
+              shopifyOrder?: { success?: boolean; orderNumber?: number; error?: string };
+            };
             toast.dismiss("verify-toast");
+
+            console.log("[Razorpay Verification Response Diagnostics]:", {
+              httpStatus,
+              success: verifyData.success,
+              shopifyOrderSuccess: verifyData.shopifyOrder?.success,
+              shopifyOrderNumber: verifyData.shopifyOrder?.orderNumber,
+            });
 
             if (verifyRes.ok && verifyData.success) {
               toast.success("Payment verified successfully!");
+
+              const searchParams = new URLSearchParams({
+                payment_id: response.razorpay_payment_id,
+                order_id: response.razorpay_order_id,
+                amount: String(subtotal),
+                currency: currencyCode || "INR",
+              }).toString();
+
               clearCart();
-              navigate({
-                to: "/order-success",
-                search: {
-                  payment_id: response.razorpay_payment_id,
-                  order_id: response.razorpay_order_id,
-                  amount: subtotal,
-                  currency: currencyCode,
-                },
-              });
+
+              try {
+                navigate({
+                  to: "/order-success",
+                  search: {
+                    payment_id: response.razorpay_payment_id,
+                    order_id: response.razorpay_order_id,
+                    amount: subtotal,
+                    currency: currencyCode,
+                  },
+                });
+              } catch (navErr) {
+                console.warn("[Razorpay Redirect] Router navigation failed, falling back to window.location:", navErr);
+              }
+
+              // Fallback redirect to guarantee browser leaves modal / iframe event loop
+              setTimeout(() => {
+                if (window.location.pathname !== "/order-success" && window.location.pathname !== "/order-confirmed") {
+                  window.location.href = `/order-success?${searchParams}`;
+                }
+              }, 100);
             } else {
-              toast.error(verifyData.error || "Payment signature verification failed.");
+              toast.error("Payment verification failed. Please contact support.");
             }
           } catch (err) {
-            console.error("Verification Error:", err);
+            console.error("Verification Exception:", err);
             toast.dismiss("verify-toast");
-            toast.error("An error occurred during payment verification.");
+            toast.error("Payment verification failed. Please contact support.");
           } finally {
             setIsProcessing(false);
           }

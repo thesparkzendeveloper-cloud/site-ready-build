@@ -186,6 +186,7 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
         pinCode?: string;
         country?: string;
       };
+      lineItems?: Array<{ variantId: string; quantity: number; title?: string; price?: number }>;
     };
 
     const { razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
@@ -239,8 +240,11 @@ export async function handleVerifyRazorpayPayment(request: Request): Promise<Res
         variantId: node.merchandise.id,
         quantity: node.quantity,
         title: node.merchandise.product?.title || node.merchandise.title,
-        price: parseFloat(node.merchandise.price.amount),
       }));
+    }
+
+    if (lineItems.length === 0 && Array.isArray(body.lineItems) && body.lineItems.length > 0) {
+      lineItems = body.lineItems;
     }
 
     // Diagnostic transaction summary log
