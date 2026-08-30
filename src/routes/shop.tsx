@@ -12,7 +12,30 @@ import {
   type Product,
 } from "@/lib/products";
 
+interface ShopSearch {
+  category?: string | undefined;
+  size?: string | undefined;
+  color?: string | undefined;
+  material?: string | undefined;
+  maxPrice?: number | undefined;
+  inStock?: boolean | undefined;
+  search?: string | undefined;
+  sort?: string | undefined;
+}
+
 export const Route = createFileRoute("/shop")({
+  validateSearch: (search: Record<string, unknown>): ShopSearch => {
+    return {
+      category: typeof search["category"] === "string" ? search["category"] : undefined,
+      size: typeof search["size"] === "string" ? search["size"] : undefined,
+      color: typeof search["color"] === "string" ? search["color"] : undefined,
+      material: typeof search["material"] === "string" ? search["material"] : undefined,
+      maxPrice: search["maxPrice"] ? Number(search["maxPrice"]) : undefined,
+      inStock: search["inStock"] === "true" || search["inStock"] === true ? true : undefined,
+      search: typeof search["search"] === "string" ? search["search"] : undefined,
+      sort: typeof search["sort"] === "string" ? search["sort"] : undefined,
+    };
+  },
   loader: async () => {
     const [products, categories] = await Promise.all([getProductsAsync(), getCategoriesAsync()]);
     return { products, categories };
@@ -47,17 +70,23 @@ const materials = ["Cotton", "Fleece", "French Terry", "Polyester Blend"];
 
 function Shop() {
   const { products: loadedProducts, categories: loadedCategories } = Route.useLoaderData();
+  const searchParams = Route.useSearch();
+
   const [productList, setProductList] = useState<Product[]>(
     loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts
   );
   const [categoryList, setCategoryList] = useState<Array<{ name: string; count: number }>>(
     loadedCategories && loadedCategories.length > 0 ? loadedCategories : fallbackCategories
   );
-  const [active, setActive] = useState("All Products");
-  const [size, setSize] = useState<string | null>(null);
-  const [maxPrice, setMaxPrice] = useState(10000);
-  const [sort, setSort] = useState("featured");
-  const [searchQuery, setSearchQuery] = useState("");
+
+  const [activeCategory, setActiveCategory] = useState<string>(searchParams.category || "All Products");
+  const [sizeFilter, setSizeFilter] = useState<string | null>(searchParams.size || null);
+  const [colorFilter, setColorFilter] = useState<string | null>(searchParams.color || null);
+  const [materialFilter, setMaterialFilter] = useState<string | null>(searchParams.material || null);
+  const [maxPrice, setMaxPrice] = useState<number>(searchParams.maxPrice || 10000);
+  const [inStockOnly, setInStockOnly] = useState<boolean>(searchParams.inStock ?? false);
+  const [sort, setSort] = useState<string>(searchParams.sort || "featured");
+  const [searchQuery, setSearchQuery] = useState<string>(searchParams.search || "");
 
   useEffect(() => {
     if (loadedProducts && loadedProducts.length > 0) {
@@ -68,15 +97,46 @@ function Shop() {
     }
   }, [loadedProducts, loadedCategories]);
 
+  useEffect(() => {
+    setActiveCategory(searchParams.category || "All Products");
+    setSizeFilter(searchParams.size || null);
+    setColorFilter(searchParams.color || null);
+    setMaterialFilter(searchParams.material || null);
+    setMaxPrice(searchParams.maxPrice || 10000);
+    setInStockOnly(Boolean(searchParams.inStock));
+    setSearchQuery(searchParams.search || "");
+    setSort(searchParams.sort || "featured");
+  }, [searchParams]);
+
   let list = productList.filter((p) => {
-    const matchesCategory = active === "All Products" || p.category === active;
+    const matchesCategory =
+      activeCategory === "All Products" ||
+      p.category.toLowerCase() === activeCategory.toLowerCase() ||
+      p.productType?.toLowerCase() === activeCategory.toLowerCase() ||
+      p.name.toLowerCase().includes(activeCategory.toLowerCase());
+
+    const matchesSize = !sizeFilter || (p.sizes && p.sizes.includes(sizeFilter));
+    const matchesColor = !colorFilter || (p.colors && p.colors.includes(colorFilter));
+    const matchesMaterial =
+      !materialFilter || (p.material && p.material.toLowerCase().includes(materialFilter.toLowerCase()));
     const matchesPrice = p.price <= maxPrice;
+    const matchesInStock = !inStockOnly || p.availableForSale !== false;
     const matchesSearch =
       !searchQuery.trim() ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesPrice && matchesSearch;
+
+    return (
+      matchesCategory &&
+      matchesSize &&
+      matchesColor &&
+      matchesMaterial &&
+      matchesPrice &&
+      matchesInStock &&
+      matchesSearch
+    );
   });
+
   if (sort === "low") list = [...list].sort((a, b) => a.price - b.price);
   if (sort === "high") list = [...list].sort((a, b) => b.price - a.price);
 
@@ -93,17 +153,17 @@ function Shop() {
       </header>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
-        {/* Sidebar */}
-        <aside className="space-y-7">
+        {/* Sidebar (Desktop) */}
+        <aside className="hidden lg:block space-y-7">
           <section>
             <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Categories</h2>
             <ul className="mt-3 space-y-1">
               {categoryList.map((c) => (
                 <li key={c.name}>
                   <button
-                    onClick={() => setActive(c.name)}
+                    onClick={() => setActiveCategory(c.name)}
                     className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                      active === c.name
+                      activeCategory === c.name
                         ? "bg-primary font-bold text-primary-foreground"
                         : "hover:bg-muted"
                     }`}
@@ -121,7 +181,7 @@ function Shop() {
             <input
               type="range"
               min={299}
-              max={2000}
+              max={10000}
               step={100}
               value={maxPrice}
               aria-label="Maximum price"
@@ -137,9 +197,9 @@ function Shop() {
               {sizes.map((s) => (
                 <button
                   key={s}
-                  onClick={() => setSize(size === s ? null : s)}
+                  onClick={() => setSizeFilter(sizeFilter === s ? null : s)}
                   className={`h-9 w-11 rounded-lg border text-sm font-bold transition-colors ${
-                    size === s
+                    sizeFilter === s
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border hover:border-primary"
                   }`}
@@ -156,9 +216,12 @@ function Shop() {
               {colors.map(([name, value]) => (
                 <button
                   key={name}
+                  onClick={() => setColorFilter(colorFilter === name ? null : (name ?? null))}
                   aria-label={name}
                   title={name}
-                  className="h-7 w-7 rounded-full ring-1 ring-border transition-transform hover:scale-110"
+                  className={`h-7 w-7 rounded-full ring-2 transition-transform hover:scale-110 ${
+                    colorFilter === name ? "ring-primary scale-110" : "ring-border"
+                  }`}
                   style={{ background: value }}
                 />
               ))}
@@ -170,8 +233,14 @@ function Shop() {
             <ul className="mt-3 space-y-2 text-sm">
               {materials.map((m) => (
                 <li key={m}>
-                  <label className="flex items-center gap-2 text-muted-foreground">
-                    <input type="checkbox" className="accent-primary" /> {m}
+                  <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={materialFilter === m}
+                      onChange={(e) => setMaterialFilter(e.target.checked ? m : null)}
+                      className="accent-primary"
+                    />{" "}
+                    {m}
                   </label>
                 </li>
               ))}
@@ -182,20 +251,21 @@ function Shop() {
             <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Availability</h2>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" className="accent-primary" defaultChecked /> In stock
-                </label>
-              </li>
-              <li>
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" className="accent-primary" /> Pre-order
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={inStockOnly}
+                    onChange={(e) => setInStockOnly(e.target.checked)}
+                    className="accent-primary"
+                  />{" "}
+                  In stock
                 </label>
               </li>
             </ul>
           </section>
         </aside>
 
-        {/* Grid */}
+        {/* Product Grid */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
             <p className="text-sm text-muted-foreground">
@@ -235,7 +305,7 @@ function Shop() {
               No products match these filters.
             </p>
           ) : (
-            <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((p) => (
                 <ProductCard key={p.slug} product={p} />
               ))}

@@ -46,6 +46,7 @@ export type Product = {
   image: string;
   gallery: string[];
   category: string;
+  productType?: string | undefined;
   badge?: string | undefined;
   rating: number;
   reviews: number;
@@ -54,6 +55,9 @@ export type Product = {
   currencyCode?: string | undefined;
   options?: ProductOption[] | undefined;
   variants?: ProductVariant[] | undefined;
+  sizes?: string[] | undefined;
+  colors?: string[] | undefined;
+  material?: string | undefined;
 };
 
 export const products: Product[] = [

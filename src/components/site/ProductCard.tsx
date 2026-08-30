@@ -23,7 +23,7 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <article className="surface-card group overflow-hidden rounded-2xl">
       <div className="relative aspect-4/5 overflow-hidden bg-muted">
-        <Link to="/product/$slug" params={{ slug: product.slug }}>
+        <Link to="/product/$slug" params={{ slug: product.slug }} className="block h-full w-full">
           <img
             src={product.image}
             alt={product.name}
@@ -32,19 +32,20 @@ export function ProductCard({ product }: { product: Product }) {
           />
         </Link>
         {product.badge && (
-          <span className="absolute left-3 top-3 rounded-md bg-ink px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-wider text-ink-foreground">
+          <span className="hidden lg:block absolute left-3 top-3 rounded-md bg-ink px-2.5 py-1 text-[0.65rem] font-extrabold uppercase tracking-wider text-ink-foreground">
             {product.badge}
           </span>
         )}
         <button
           aria-label="Add to wishlist"
-          className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-surface/90 text-foreground shadow-sm transition-colors hover:text-primary cursor-pointer"
+          className="hidden lg:grid absolute right-3 top-3 h-8 w-8 place-items-center rounded-full bg-surface/90 text-foreground shadow-sm transition-colors hover:text-primary cursor-pointer"
         >
           <Heart className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="p-4">
+      {/* Desktop Product Details - Hidden on Mobile View */}
+      <div className="hidden p-4 lg:block">
         <Link
           to="/product/$slug"
           params={{ slug: product.slug }}
