@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as CustomizationRouteImport } from './routes/customization'
 import { Route as OrderConfirmedRouteImport } from './routes/order-confirmed'
 import { Route as OrderSuccessRouteImport } from './routes/order-success'
 import { Route as ShopRouteImport } from './routes/shop'
@@ -36,6 +37,11 @@ const CheckoutRoute = CheckoutRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CustomizationRoute = CustomizationRouteImport.update({
+  id: '/customization',
+  path: '/customization',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrderConfirmedRoute = OrderConfirmedRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/customization': typeof CustomizationRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/order-success': typeof OrderSuccessRoute
   '/shop': typeof ShopRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/customization': typeof CustomizationRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/order-success': typeof OrderSuccessRoute
   '/shop': typeof ShopRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/checkout': typeof CheckoutRoute
   '/contact': typeof ContactRoute
+  '/customization': typeof CustomizationRoute
   '/order-confirmed': typeof OrderConfirmedRoute
   '/order-success': typeof OrderSuccessRoute
   '/shop': typeof ShopRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/checkout'
     | '/contact'
+    | '/customization'
     | '/order-confirmed'
     | '/order-success'
     | '/shop'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/checkout'
     | '/contact'
+    | '/customization'
     | '/order-confirmed'
     | '/order-success'
     | '/shop'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/checkout'
     | '/contact'
+    | '/customization'
     | '/order-confirmed'
     | '/order-success'
     | '/shop'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   CheckoutRoute: typeof CheckoutRoute
   ContactRoute: typeof ContactRoute
+  CustomizationRoute: typeof CustomizationRoute
   OrderConfirmedRoute: typeof OrderConfirmedRoute
   OrderSuccessRoute: typeof OrderSuccessRoute
   ShopRoute: typeof ShopRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/customization': {
+      id: '/customization'
+      path: '/customization'
+      fullPath: '/customization'
+      preLoaderRoute: typeof CustomizationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/order-confirmed': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   CheckoutRoute: CheckoutRoute,
   ContactRoute: ContactRoute,
+  CustomizationRoute: CustomizationRoute,
   OrderConfirmedRoute: OrderConfirmedRoute,
   OrderSuccessRoute: OrderSuccessRoute,
   ShopRoute: ShopRoute,
