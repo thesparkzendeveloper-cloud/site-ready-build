@@ -1,6 +1,6 @@
 import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Star, ShoppingCart, Truck, RefreshCw, ShieldCheck, Plus } from "lucide-react";
+import { Star, ShoppingCart, Truck, ShieldCheck, Plus, Minus, AlertCircle, RotateCcw } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { ProductCard } from "@/components/site/ProductCard";
@@ -53,6 +53,7 @@ function ProductPage() {
   const [image, setImage] = useState(initialProduct.gallery[0] || initialProduct.image);
   const [selectedSize, setSelectedSize] = useState("M");
   const [selectedColor, setSelectedColor] = useState("Black");
+  const [quantity, setQuantity] = useState(1);
   const [selectedOptionsState, setSelectedOptionsState] = useState<Record<string, string>>({});
 
   const { addToCart, checkout } = useCart();
@@ -60,6 +61,7 @@ function ProductPage() {
   useEffect(() => {
     setProduct(initialProduct);
     setImage(initialProduct.gallery[0] || initialProduct.image);
+    setQuantity(1);
 
     // Initialize Shopify options state if available
     if (initialProduct.options && initialProduct.options.length > 0) {
@@ -109,7 +111,7 @@ function ProductPage() {
 
     addToCart({
       variantId: currentVariantId,
-      quantity: 1,
+      quantity,
       title: product.name,
       handle: product.slug,
       price: currentPrice,
@@ -136,7 +138,7 @@ function ProductPage() {
 
     await addToCart({
       variantId: currentVariantId,
-      quantity: 1,
+      quantity,
       title: product.name,
       handle: product.slug,
       price: currentPrice,
@@ -148,9 +150,6 @@ function ProductPage() {
     });
     navigate({ to: "/checkout" });
   };
-
-  const bundle = fallbackProducts.filter((p) => p.slug !== product.slug).slice(0, 3);
-  const bundleTotal = currentPrice + bundle.reduce((sum, p) => sum + p.price, 0);
 
   return (
     <SiteLayout>
@@ -239,10 +238,10 @@ function ProductPage() {
                         <button
                           key={val}
                           onClick={() => handleOptionChange(option.name, val)}
-                          className={`min-w-11 px-3 py-2 rounded-xl border text-sm font-bold transition-colors cursor-pointer ${
+                          className={`min-w-11 px-3.5 py-2 rounded-xl border text-sm font-bold transition-all cursor-pointer ${
                             isSelected
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border hover:border-primary"
+                              ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                              : "border-border hover:border-primary text-foreground"
                           }`}
                         >
                           {val}
@@ -255,7 +254,32 @@ function ProductPage() {
             </div>
           ) : (
             <>
+              {/* Size Selection */}
               <div className="mt-7">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">
+                    Select Size: <span className="text-primary">{selectedSize}</span>
+                  </h2>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {defaultSizes.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSize(s)}
+                      className={`h-11 w-14 rounded-xl border text-sm font-bold transition-all cursor-pointer ${
+                        selectedSize === s
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border hover:border-primary text-foreground"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Colour Selection */}
+              <div className="mt-6">
                 <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">
                   Colour: <span className="text-primary">{selectedColor}</span>
                 </h2>
@@ -266,35 +290,49 @@ function ProductPage() {
                       onClick={() => setSelectedColor(name)}
                       aria-label={name}
                       className={`h-9 w-9 rounded-full ring-2 ring-offset-2 ring-offset-background transition-all cursor-pointer ${
-                        selectedColor === name ? "ring-primary" : "ring-border"
+                        selectedColor === name ? "ring-primary scale-105" : "ring-border"
                       }`}
                       style={{ background: value }}
                     />
                   ))}
                 </div>
               </div>
-
-              <div className="mt-6">
-                <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Select Size</h2>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {defaultSizes.map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setSelectedSize(s)}
-                      className={`h-11 w-14 rounded-xl border text-sm font-bold transition-colors cursor-pointer ${
-                        selectedSize === s
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border hover:border-primary"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </>
           )}
 
+          {/* Product Count / Quantity Selector */}
+          <div className="mt-6">
+            <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Quantity</h2>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="flex items-center rounded-xl border border-border bg-surface p-1">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer"
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="w-12 text-center text-sm font-extrabold text-foreground">
+                  {quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((q) => q + 1)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-foreground hover:bg-muted transition-colors cursor-pointer"
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+              <span className="text-xs text-muted-foreground font-semibold">
+                {quantity > 1 ? `${quantity} items selected` : "1 item selected"}
+              </span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <button
               onClick={handleAddToCart}
@@ -316,7 +354,7 @@ function ProductPage() {
           <ul className="mt-7 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
             {[
               [Truck, "Free shipping over ₹999"],
-              [ShieldCheck, "100% authentic"],
+              [ShieldCheck, "100% authentic streetwear"],
             ].map(([Icon, text], i) => {
               const I = Icon as typeof Truck;
               return (
@@ -328,7 +366,8 @@ function ProductPage() {
             })}
           </ul>
 
-          <div className="surface-card mt-7 rounded-2xl p-5">
+          {/* Product Details */}
+          <div className="surface-card mt-7 rounded-2xl p-5 border border-border/80">
             <h2 className="text-sm font-extrabold">Product Details</h2>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>· Premium heavyweight fabric, 320 GSM</li>
@@ -338,45 +377,48 @@ function ProductPage() {
               <li>· Machine wash cold, inside out</li>
             </ul>
           </div>
+
+          {/* Shipping & Return Policy Section */}
+          <div className="surface-card mt-6 rounded-2xl p-5 border border-border/80 space-y-4">
+            <h2 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+              <Truck className="h-4 w-4 text-primary" /> Shipping & Return Policy
+            </h2>
+
+            <div className="space-y-3 pt-1">
+              <div className="flex items-start gap-3">
+                <div className="rounded-xl bg-primary/10 p-2 text-primary shrink-0 mt-0.5">
+                  <Truck className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-foreground">Fast Dispatch & Shipping</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                    Orders are processed and dispatched within 24-48 hours. Express delivery across India takes 3-5 business days. Free shipping on all orders above ₹999.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-border/60 pt-3 flex items-start gap-3">
+                <div className="rounded-xl bg-destructive/10 p-2 text-destructive shrink-0 mt-0.5">
+                  <AlertCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold text-foreground">Return Policy</h3>
+                    <span className="rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-extrabold text-destructive">
+                      No Returns Available
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                    <strong className="text-foreground">No returns available</strong> for this product. Replacement or size exchange is permitted within 7 days of delivery only in case of sizing issues or damaged/defective products received.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Frequently bought together */}
-      <section className="mt-16">
-        <h2 className="text-2xl sm:text-3xl">Frequently Bought Together</h2>
-        <div className="surface-card mt-6 flex flex-col gap-6 rounded-2xl p-6 lg:flex-row lg:items-center">
-          <div className="flex flex-1 flex-wrap items-center gap-4">
-            {[product, ...bundle].map((p, i) => (
-              <div key={p.slug} className="flex items-center gap-4">
-                {i > 0 && <Plus className="h-4 w-4 text-primary" />}
-                <div className="w-28">
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    loading="lazy"
-                    className="aspect-square w-full rounded-xl object-cover"
-                  />
-                  <p className="mt-2 text-xs font-bold">{p.name}</p>
-                  <p className="text-xs text-primary">{formatPrice(p.price, p.currencyCode)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="lg:w-56">
-            <p className="text-sm text-muted-foreground">Bundle total</p>
-            <p className="text-2xl font-extrabold text-primary">
-              {formatPrice(bundleTotal, product.currencyCode)}
-            </p>
-            <button
-              className="mt-3 w-full rounded-full bg-primary px-5 py-3 text-sm font-bold text-primary-foreground"
-            >
-              Add all to cart
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* You may also like */}
+      {/* You May Also Like */}
       <section className="mt-16">
         <h2 className="text-2xl sm:text-3xl">You May Also Like</h2>
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

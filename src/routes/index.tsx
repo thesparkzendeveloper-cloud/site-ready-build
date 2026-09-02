@@ -7,10 +7,6 @@ import { TrustBar } from "@/components/site/TrustBar";
 import { products as fallbackProducts, getProductsAsync, formatPrice, type Product } from "@/lib/products";
 import heroHoodie from "@/assets/hero-hoodie.jpg";
 import dropBanner from "@/assets/drop-banner.jpg";
-import graphicHoodie from "@/assets/product-graphic-hoodie.jpg";
-import oversizedTee from "@/assets/product-oversized-tee.jpg";
-import sweatshirt from "@/assets/product-sweatshirt.jpg";
-import cap from "@/assets/product-cap.jpg";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
@@ -35,13 +31,6 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const categoryCards = [
-  { name: "Hoodies", image: graphicHoodie },
-  { name: "Oversized Tees", image: oversizedTee },
-  { name: "Sweatshirts", image: sweatshirt },
-  { name: "Accessories", image: cap },
-];
-
 function Home() {
   const { products: loadedProducts } = Route.useLoaderData();
   const initialProducts = loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts;
@@ -62,10 +51,22 @@ function Home() {
   const featured = (productList[0] || fallbackProducts[0])!;
 
   const categoriesWithDynamicImages = [
-    { name: "Hoodies", image: productList[0]?.image || graphicHoodie },
-    { name: "Oversized Tees", image: productList[1]?.image || oversizedTee },
-    { name: "Sweatshirts", image: productList[2]?.image || sweatshirt },
-    { name: "Accessories", image: productList[0]?.image || cap },
+    {
+      name: "Hoodies",
+      image: productList.find((p) => p.category === "Hoodies")?.image || featured?.image || heroHoodie,
+    },
+    {
+      name: "Oversized Tees",
+      image: productList.find((p) => p.category === "Oversized Tees")?.image || productList[1]?.image || heroHoodie,
+    },
+    {
+      name: "Sweatshirts",
+      image: productList.find((p) => p.category === "Sweatshirts")?.image || productList[2]?.image || heroHoodie,
+    },
+    {
+      name: "Accessories",
+      image: productList.find((p) => p.category === "Accessories")?.image || productList[3]?.image || heroHoodie,
+    },
   ];
 
   return (

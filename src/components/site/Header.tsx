@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Search, ShoppingCart, Menu, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Search, ShoppingCart, Menu, ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Logo } from "./Logo";
 import { useCart } from "@/context/CartContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getProductsAsync, products as fallbackProducts, formatPrice, type Product } from "@/lib/products";
 
 const categoriesList = [
   "Polo T-Shirts",
@@ -22,27 +24,64 @@ const colorsList = [
   ["Grey", "oklch(0.72 0.008 70)"],
   ["Beige", "oklch(0.88 0.03 85)"],
 ];
-const materialsList = ["Cotton", "Fleece", "French Terry", "Polyester Blend"];
 
 export function Header() {
   const [open, setOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
-  const [materialOpen, setMaterialOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
-  const [availabilityOpen, setAvailabilityOpen] = useState(false);
+
+  // Search Modal State
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [allProducts, setAllProducts] = useState<Product[]>(fallbackProducts);
 
   // Mobile Filter States
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [maxPrice, setMaxPrice] = useState<number>(10000);
-  const [inStockOnly, setInStockOnly] = useState<boolean>(false);
 
   const navigate = useNavigate();
   const { totalQuantity, openCart } = useCart();
+
+  useEffect(() => {
+    getProductsAsync().then((prods) => {
+      if (prods && prods.length > 0) {
+        setAllProducts(prods);
+      }
+    });
+  }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setSearchOpen(false);
+      navigate({
+        to: "/shop",
+        search: { search: searchQuery.trim() },
+      });
+    }
+  };
+
+  const handleQuickTagClick = (tag: string) => {
+    setSearchOpen(false);
+    setSearchQuery("");
+    navigate({
+      to: "/shop",
+      search: { search: tag },
+    });
+  };
+
+  const matchingProducts = searchQuery.trim()
+    ? allProducts.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.description.toLowerCase().includes(searchQuery.toLowerCase())
+      ).slice(0, 4)
+    : [];
 
   const handleCategoryClick = (cat: string) => {
     setOpen(false);
@@ -56,10 +95,8 @@ export function Header() {
     setOpen(false);
     const searchObj: Record<string, string | number | boolean> = {};
     if (selectedSize) searchObj["size"] = selectedSize;
-    if (selectedMaterial) searchObj["material"] = selectedMaterial;
     if (selectedColor) searchObj["color"] = selectedColor;
     if (maxPrice < 10000) searchObj["maxPrice"] = maxPrice;
-    if (inStockOnly) searchObj["inStock"] = true;
 
     navigate({
       to: "/shop",
@@ -69,10 +106,8 @@ export function Header() {
 
   const handleClearFilters = () => {
     setSelectedSize(null);
-    setSelectedMaterial(null);
     setSelectedColor(null);
     setMaxPrice(10000);
-    setInStockOnly(false);
   };
 
   return (
@@ -113,7 +148,11 @@ export function Header() {
 
         {/* Cart & Search Actions */}
         <div className="flex items-center gap-3">
-          <button aria-label="Search" className="text-foreground/80 hover:text-primary">
+          <button
+            onClick={() => setSearchOpen(true)}
+            aria-label="Search"
+            className="p-2 rounded-full text-foreground/80 hover:text-primary hover:bg-muted/60 transition-all cursor-pointer"
+          >
             <Search className="h-5 w-5" />
           </button>
           <span className="hidden h-8 w-8 rounded-full bg-muted ring-1 ring-border sm:block" />
@@ -127,6 +166,112 @@ export function Header() {
           </button>
         </div>
       </div>
+
+      {/* Interactive Search Modal */}
+      <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+        <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-border bg-background shadow-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Search Products</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSearchSubmit} className="relative border-b border-border p-4 flex items-center gap-3 bg-surface">
+            <Search className="h-5 w-5 text-primary shrink-0" />
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search hoodies, oversized tees, caps..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="text-xs font-bold text-muted-foreground hover:text-foreground cursor-pointer px-2"
+              >
+                Clear
+              </button>
+            )}
+          </form>
+
+          <div className="p-5 space-y-5">
+            {/* Quick Category Tags */}
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground mb-2.5">
+                Popular Searches
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {["Hoodie", "Oversized", "Tee", "Sweatshirt", "Cap"].map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleQuickTagClick(tag)}
+                    className="rounded-full bg-muted px-3.5 py-1.5 text-xs font-bold text-foreground hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Instant Search Results */}
+            {searchQuery.trim() && (
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground mb-3">
+                  Matching Products ({matchingProducts.length})
+                </p>
+
+                {matchingProducts.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    No products found matching "{searchQuery}"
+                  </p>
+                ) : (
+                  <div className="grid gap-2">
+                    {matchingProducts.map((p) => (
+                      <button
+                        key={p.slug}
+                        type="button"
+                        onClick={() => {
+                          setSearchOpen(false);
+                          setSearchQuery("");
+                          navigate({ to: "/product/$slug", params: { slug: p.slug } });
+                        }}
+                        className="flex items-center gap-3 rounded-xl p-2.5 hover:bg-muted transition-colors text-left w-full cursor-pointer group"
+                      >
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="h-12 w-12 rounded-lg object-cover bg-muted shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                            {p.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{p.category}</p>
+                        </div>
+                        <span className="text-sm font-extrabold text-primary shrink-0">
+                          {formatPrice(p.price, p.currencyCode)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-3 border-t border-border mt-3">
+                  <button
+                    type="button"
+                    onClick={handleSearchSubmit}
+                    className="w-full text-center text-xs font-bold text-primary hover:underline cursor-pointer py-1"
+                  >
+                    View all results for "{searchQuery}" →
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Mobile Catalogue Left Slide-Out Drawer */}
       <Sheet open={open} onOpenChange={setOpen}>
@@ -206,7 +351,7 @@ export function Header() {
               >
                 <span className="flex items-center gap-2">
                   <span>Shop Filters</span>
-                  {(selectedSize || selectedMaterial || selectedColor || inStockOnly || maxPrice < 10000) && (
+                  {(selectedSize || selectedColor || maxPrice < 10000) && (
                     <span className="h-2 w-2 rounded-full bg-primary" />
                   )}
                 </span>
@@ -242,32 +387,6 @@ export function Header() {
                           >
                             {s}
                           </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Material Filter */}
-                  <div>
-                    <button
-                      onClick={() => setMaterialOpen((v) => !v)}
-                      className="flex w-full items-center justify-between py-1.5 text-xs font-extrabold uppercase tracking-wider text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      <span>Material {selectedMaterial && `(${selectedMaterial})`}</span>
-                      {materialOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                    </button>
-                    {materialOpen && (
-                      <div className="mt-2 space-y-1.5 pb-2">
-                        {materialsList.map((m) => (
-                          <label key={m} className="flex items-center gap-2 text-xs font-semibold text-foreground/80 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedMaterial === m}
-                              onChange={(e) => setSelectedMaterial(e.target.checked ? m : null)}
-                              className="accent-primary"
-                            />
-                            <span>{m}</span>
-                          </label>
                         ))}
                       </div>
                     )}
@@ -324,30 +443,6 @@ export function Header() {
                           <span>₹299</span>
                           <span className="font-bold text-foreground">₹{maxPrice}</span>
                         </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Availability Filter */}
-                  <div>
-                    <button
-                      onClick={() => setAvailabilityOpen((v) => !v)}
-                      className="flex w-full items-center justify-between py-1.5 text-xs font-extrabold uppercase tracking-wider text-muted-foreground hover:text-foreground cursor-pointer"
-                    >
-                      <span>Availability</span>
-                      {availabilityOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                    </button>
-                    {availabilityOpen && (
-                      <div className="mt-2 pb-2">
-                        <label className="flex items-center gap-2 text-xs font-semibold text-foreground/80 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={inStockOnly}
-                            onChange={(e) => setInStockOnly(e.target.checked)}
-                            className="accent-primary"
-                          />
-                          <span>In stock only</span>
-                        </label>
                       </div>
                     )}
                   </div>

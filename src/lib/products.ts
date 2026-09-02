@@ -1,9 +1,14 @@
-import reflectiveHoodie from "@/assets/product-reflective-hoodie.jpg";
-import graphicHoodie from "@/assets/product-graphic-hoodie.jpg";
-import oversizedTee from "@/assets/product-oversized-tee.jpg";
-import abstractTee from "@/assets/product-abstract-tee.jpg";
-import sweatshirt from "@/assets/product-sweatshirt.jpg";
-import longsleeve from "@/assets/product-longsleeve.jpg";
+import akImg from "@/assets/products/AK.jpeg";
+import ajithImg from "@/assets/products/Ajith.jpeg";
+import bmwLogoImg from "@/assets/products/BMW logo.jpeg";
+import bmwCarImg from "@/assets/products/Bmw car.jpeg";
+import gtaImg from "@/assets/products/GTA.jpeg";
+import raavanImg from "@/assets/products/Raavan.jpeg";
+import spiderManImg from "@/assets/products/Spider Man.jpeg";
+import spiderImg from "@/assets/products/Spider.jpeg";
+import spidermanImg from "@/assets/products/Spiderman.jpeg";
+import ravananImg from "@/assets/products/ravanan.jpeg";
+
 import cap from "@/assets/product-cap.jpg";
 import keychain from "@/assets/product-keychain.jpg";
 import tote from "@/assets/product-tote.jpg";
@@ -62,85 +67,150 @@ export type Product = {
 
 export const products: Product[] = [
   {
-    slug: "reflective-hoodie",
-    name: "Reflective Hoodie",
+    slug: "spider-man-webbed-hoodie",
+    name: "Spider-Man Webbed Hoodie",
     subtitle: "Streetwear Essential",
     price: 1499,
     compareAt: 1999,
-    image: reflectiveHoodie,
-    gallery: [reflectiveHoodie, heroHoodie, graphicHoodie, sweatshirt],
+    image: spiderManImg,
+    gallery: [spiderManImg, spiderImg, spidermanImg],
     category: "Hoodies",
     badge: "Best Seller",
-    rating: 4.8,
-    reviews: 2560,
+    rating: 4.9,
+    reviews: 1420,
     description:
-      "Built for those who don't blend in. Our Reflective Hoodie features a high-quality reflective print that lights up your presence. Premium comfort, oversized fit, and made to stand out.",
+      "Built for those who don't blend in. Our Spider-Man Webbed Hoodie features high-density artwork on 360 GSM fleece. Premium comfort, oversized fit, and made to stand out.",
   },
   {
-    slug: "graphic-hoodie",
-    name: "Graphic Hoodie",
+    slug: "ak-edition-oversized-tee",
+    name: "AK Edition Oversized Tee",
+    subtitle: "Streetwear Essential",
+    price: 899,
+    compareAt: 1199,
+    image: akImg,
+    gallery: [akImg, ajithImg],
+    category: "Oversized Tees",
+    badge: "Trending",
+    rating: 4.8,
+    reviews: 980,
+    description:
+      "Drop-shoulder oversized tee featuring bold AK typographic art. 240 GSM combed cotton that keeps its structured shape wash after wash.",
+  },
+  {
+    slug: "bmw-motorsport-hoodie",
+    name: "BMW Motorsport Hoodie",
+    subtitle: "Streetwear Essential",
+    price: 1599,
+    compareAt: 2199,
+    image: bmwLogoImg,
+    gallery: [bmwLogoImg, bmwCarImg],
+    category: "Hoodies",
+    badge: "Limited Drop",
+    rating: 4.9,
+    reviews: 2150,
+    description:
+      "Motorsport-inspired heavyweight streetwear hoodie with the iconic badge emblem. Deep kangaroo pocket and custom drawstring detail.",
+  },
+  {
+    slug: "raavan-mythic-hoodie",
+    name: "Raavan Mythic Hoodie",
+    subtitle: "Streetwear Essential",
+    price: 1399,
+    compareAt: 1799,
+    image: raavanImg,
+    gallery: [raavanImg, ravananImg],
+    category: "Hoodies",
+    badge: "Hot Drop",
+    rating: 4.8,
+    reviews: 860,
+    description:
+      "A dark art mythical statement piece. Heavyweight fleece, relaxed shoulders, and rich contrast print built to make an impression.",
+  },
+  {
+    slug: "gta-graphic-oversized-tee",
+    name: "GTA Graphic Oversized Tee",
+    subtitle: "Streetwear Essential",
+    price: 899,
+    compareAt: 1299,
+    image: gtaImg,
+    gallery: [gtaImg, akImg],
+    category: "Oversized Tees",
+    badge: "Viral",
+    rating: 4.7,
+    reviews: 1120,
+    description:
+      "Nostalgic retro streetwear tee with high-definition vibrant print. 240 GSM breathable combed cotton with reinforced ribbing.",
+  },
+  {
+    slug: "m-power-track-sweatshirt",
+    name: "M-Power Track Sweatshirt",
     subtitle: "Streetwear Essential",
     price: 1299,
     compareAt: 1699,
-    image: graphicHoodie,
-    gallery: [graphicHoodie, heroHoodie, reflectiveHoodie],
-    category: "Hoodies",
-    rating: 4.7,
-    reviews: 1180,
-    description:
-      "A bold red statement piece with a hand-drawn emblem. Heavyweight fleece, relaxed shoulders, built to be worn every single day.",
-  },
-  {
-    slug: "oversized-tee",
-    name: "Oversized Tee",
-    subtitle: "Streetwear Essential",
-    price: 899,
-    image: oversizedTee,
-    gallery: [oversizedTee, abstractTee],
-    category: "Oversized Tees",
-    rating: 4.6,
-    reviews: 940,
-    description:
-      "Drop-shoulder oversized tee with a symmetrical back print. 240 GSM combed cotton that keeps its shape wash after wash.",
-  },
-  {
-    slug: "abstract-tee",
-    name: "Abstract Tee",
-    subtitle: "Streetwear Essential",
-    price: 799,
-    image: abstractTee,
-    gallery: [abstractTee, oversizedTee],
-    category: "T-Shirts",
-    rating: 4.5,
-    reviews: 610,
-    description:
-      "Off-white canvas, one brush-stroke circle. Minimal on the outside, loud in the details.",
-  },
-  {
-    slug: "premium-sweatshirt",
-    name: "Premium Sweatshirt",
-    subtitle: "Streetwear Essential",
-    price: 1199,
-    image: sweatshirt,
-    gallery: [sweatshirt, longsleeve],
+    image: bmwCarImg,
+    gallery: [bmwCarImg, bmwLogoImg],
     category: "Sweatshirts",
     rating: 4.7,
-    reviews: 520,
+    reviews: 640,
     description:
-      "Clean black crewneck with a small embroidered spark. French terry inside, structured outside.",
+      "Clean structured graphic sweatshirt featuring supercar artwork. French terry inside, structured outside for everyday layering.",
   },
   {
-    slug: "long-sleeve-tee",
-    name: "Long Sleeve Tee",
+    slug: "ajith-tribute-graphic-tee",
+    name: "Ajith Tribute Graphic Tee",
+    subtitle: "Streetwear Essential",
+    price: 799,
+    compareAt: 999,
+    image: ajithImg,
+    gallery: [ajithImg, akImg],
+    category: "T-Shirts",
+    rating: 4.8,
+    reviews: 750,
+    description:
+      "Cinematic monochrome graphic print on pure organic cotton. Minimal on the collar, bold on the graphic.",
+  },
+  {
+    slug: "heroic-spider-oversized-tee",
+    name: "Heroic Spider Oversized Tee",
+    subtitle: "Streetwear Essential",
+    price: 899,
+    compareAt: 1199,
+    image: spidermanImg,
+    gallery: [spidermanImg, spiderManImg, spiderImg],
+    category: "Oversized Tees",
+    badge: "New",
+    rating: 4.8,
+    reviews: 530,
+    description:
+      "Dynamic action graphic oversized tee with crack-resistant ink. Dropped shoulders for an effortless streetwear drape.",
+  },
+  {
+    slug: "king-ravana-sweatshirt",
+    name: "King Ravana Edition Sweatshirt",
+    subtitle: "Streetwear Essential",
+    price: 1199,
+    compareAt: 1599,
+    image: ravananImg,
+    gallery: [ravananImg, raavanImg],
+    category: "Sweatshirts",
+    rating: 4.6,
+    reviews: 410,
+    description:
+      "Gothic mythical art on a deep black fleece sweatshirt. Premium construction with double-stitched seams.",
+  },
+  {
+    slug: "arachnid-long-sleeve",
+    name: "Arachnid Graphic Long Sleeve",
     subtitle: "Streetwear Essential",
     price: 999,
-    image: longsleeve,
-    gallery: [longsleeve, sweatshirt],
+    compareAt: 1399,
+    image: spiderImg,
+    gallery: [spiderImg, spiderManImg, spidermanImg],
     category: "Long Sleeves",
-    rating: 4.6,
-    reviews: 380,
+    rating: 4.7,
+    reviews: 320,
     description:
-      "Deep red long sleeve with a subtle chest mark. Layer it, or let it lead.",
+      "Dark red long sleeve tee with intricate arachnid chest print. Layer it or wear it solo.",
   },
   {
     slug: "spark-zen-cap",
@@ -185,12 +255,12 @@ export const products: Product[] = [
 
 export const categories = [
   { name: "All Products", count: products.length },
-  { name: "Hoodies", count: 12 },
-  { name: "T-Shirts", count: 18 },
-  { name: "Oversized Tees", count: 10 },
-  { name: "Sweatshirts", count: 6 },
-  { name: "Long Sleeves", count: 8 },
-  { name: "Accessories", count: 4 },
+  { name: "Hoodies", count: 3 },
+  { name: "Oversized Tees", count: 3 },
+  { name: "T-Shirts", count: 1 },
+  { name: "Sweatshirts", count: 2 },
+  { name: "Long Sleeves", count: 1 },
+  { name: "Accessories", count: 3 },
 ];
 
 export const getProduct = (slug: string) => products.find((p) => p.slug === slug);
@@ -218,7 +288,18 @@ export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
 
   const firstVariant = sp.variants.nodes[0];
   const nonHomeCollection = sp.collections.nodes.find((c) => c.title !== "Home page")?.title;
-  const primaryCollection = sp.productType || nonHomeCollection || sp.collections.nodes[0]?.title || "Streetwear";
+  let primaryCollection = sp.productType || nonHomeCollection;
+
+  if (!primaryCollection || primaryCollection === "Home page" || primaryCollection === "Streetwear") {
+    const titleLower = sp.title.toLowerCase();
+    if (titleLower.includes("hoodie")) primaryCollection = "Hoodies";
+    else if (titleLower.includes("oversized") || titleLower.includes("tee")) primaryCollection = "Oversized Tees";
+    else if (titleLower.includes("t-shirt")) primaryCollection = "T-Shirts";
+    else if (titleLower.includes("sweatshirt")) primaryCollection = "Sweatshirts";
+    else if (titleLower.includes("sleeve")) primaryCollection = "Long Sleeves";
+    else if (titleLower.includes("cap") || titleLower.includes("tote") || titleLower.includes("keychain")) primaryCollection = "Accessories";
+    else primaryCollection = "Hoodies";
+  }
 
   return {
     id: sp.id,
@@ -254,60 +335,81 @@ export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
 }
 
 export async function getProductsAsync(): Promise<Product[]> {
-  const shopifyProducts = await fetchShopifyProducts();
-  if (shopifyProducts.length > 0) {
-    return shopifyProducts.map(mapShopifyProductToProduct);
+  try {
+    const shopifyProducts = await fetchShopifyProducts();
+    if (shopifyProducts && shopifyProducts.length > 0) {
+      const mapped = shopifyProducts.map(mapShopifyProductToProduct);
+      const mappedSlugs = new Set(mapped.map((p) => p.slug));
+      const merged = [...mapped, ...products.filter((p) => !mappedSlugs.has(p.slug))];
+      return merged;
+    }
+  } catch (e) {
+    console.warn("Shopify fetch failed, using local products catalog", e);
   }
   return products;
 }
 
 export async function getProductAsync(slug: string): Promise<Product | undefined> {
-  const sp = await fetchShopifyProductByHandle(slug);
-  if (sp) {
-    return mapShopifyProductToProduct(sp);
+  try {
+    const sp = await fetchShopifyProductByHandle(slug);
+    if (sp) {
+      return mapShopifyProductToProduct(sp);
+    }
+  } catch (e) {
+    console.warn("Shopify single product fetch failed", e);
   }
   return getProduct(slug);
 }
 
 export async function getCategoriesAsync(): Promise<Array<{ name: string; count: number }>> {
-  const [shopifyCollections, shopifyProducts] = await Promise.all([
-    fetchShopifyCollections(),
-    fetchShopifyProducts(),
-  ]);
+  let mappedProducts: Product[] = products;
+  let shopifyCollections: ShopifyCollection[] = [];
 
-  if (shopifyProducts.length > 0) {
-    const mapped = shopifyProducts.map(mapShopifyProductToProduct);
-    const categoryCounts: Record<string, number> = {};
-
-    for (const p of mapped) {
-      if (p.category) {
-        categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
-      }
+  try {
+    const [cols, shopifyProducts] = await Promise.all([
+      fetchShopifyCollections(),
+      fetchShopifyProducts(),
+    ]);
+    shopifyCollections = cols;
+    if (shopifyProducts && shopifyProducts.length > 0) {
+      const mapped = shopifyProducts.map(mapShopifyProductToProduct);
+      const mappedSlugs = new Set(mapped.map((p) => p.slug));
+      mappedProducts = [...mapped, ...products.filter((p) => !mappedSlugs.has(p.slug))];
     }
-
-    const result = [
-      { name: "All Products", count: mapped.length },
-      ...Object.entries(categoryCounts).map(([name, count]) => ({ name, count })),
-    ];
-
-    for (const col of shopifyCollections) {
-      if (col.title !== "Home page" && !result.some((r) => r.name === col.title)) {
-        result.push({ name: col.title, count: 0 });
-      }
-    }
-
-    return result;
+  } catch {
+    mappedProducts = products;
   }
 
-  if (shopifyCollections.length > 0) {
-    return [
-      { name: "All Products", count: 0 },
-      ...shopifyCollections.map((col) => ({
-        name: col.title,
-        count: 0,
-      })),
-    ];
+  const defaultCategoryNames = [
+    "Hoodies",
+    "Oversized Tees",
+    "T-Shirts",
+    "Sweatshirts",
+    "Long Sleeves",
+    "Accessories",
+  ];
+
+  const categoryCounts: Record<string, number> = {};
+  for (const cat of defaultCategoryNames) {
+    categoryCounts[cat] = 0;
   }
 
-  return categories;
+  for (const p of mappedProducts) {
+    if (p.category && p.category !== "Home page") {
+      categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
+    }
+  }
+
+  for (const col of shopifyCollections) {
+    if (col.title !== "Home page" && categoryCounts[col.title] === undefined) {
+      categoryCounts[col.title] = 0;
+    }
+  }
+
+  const result = [
+    { name: "All Products", count: mappedProducts.length },
+    ...Object.entries(categoryCounts).map(([name, count]) => ({ name, count })),
+  ];
+
+  return result;
 }

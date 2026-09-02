@@ -19,9 +19,20 @@ export const Route = createFileRoute("/customization")({
 
 const WHATSAPP_NUMBER = "919363447850";
 const PREFILLED_MESSAGE = encodeURIComponent("Hi SparkZen, I would like to enquire about customization.");
-const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${PREFILLED_MESSAGE}`;
+const WHATSAPP_URL = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${PREFILLED_MESSAGE}`;
 
 function CustomizationPage() {
+  const handleWhatsAppClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      window.location.href = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${PREFILLED_MESSAGE}`;
+    } else {
+      window.open(`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${PREFILLED_MESSAGE}`, "_blank", "noopener,noreferrer");
+    }
+  };
+
   return (
     <SiteLayout>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "Customization" }]} />
@@ -64,9 +75,10 @@ function CustomizationPage() {
           <div className="pt-2">
             <a
               href={WHATSAPP_URL}
+              onClick={handleWhatsAppClick}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-3 rounded-full bg-primary px-8 py-4 text-base sm:text-lg font-bold text-primary-foreground shadow-lg transition-transform hover:scale-[1.03] active:scale-[0.98] w-full sm:w-auto"
+              className="inline-flex items-center justify-center gap-3 rounded-full bg-primary px-8 py-4 text-base sm:text-lg font-bold text-primary-foreground shadow-lg transition-transform hover:scale-[1.03] active:scale-[0.98] w-full sm:w-auto cursor-pointer"
               style={{ boxShadow: "var(--shadow-glow)" }}
             >
               <MessageCircle className="h-6 w-6" />

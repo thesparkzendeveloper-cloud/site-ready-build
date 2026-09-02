@@ -1,27 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { Flame, Target, Users, Leaf, ArrowRight } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { TrustBar } from "@/components/site/TrustBar";
+import { ProductCard } from "@/components/site/ProductCard";
+import {
+  products as fallbackProducts,
+  getProductsAsync,
+  type Product,
+} from "@/lib/products";
 import heroHoodie from "@/assets/hero-hoodie.jpg";
-import team1 from "@/assets/team-1.jpg";
-import team2 from "@/assets/team-2.jpg";
-import team3 from "@/assets/team-3.jpg";
-import team4 from "@/assets/team-4.jpg";
 
 export const Route = createFileRoute("/about")({
+  loader: async () => {
+    const products = await getProductsAsync();
+    return { products };
+  },
   head: () => ({
     meta: [
       { title: "About SparkZen — From a Spark to a Movement" },
       {
         name: "description",
         content:
-          "SparkZen Clothing started as four friends and a sketchbook. Meet the team, our mission and the story behind the streetwear brand.",
+          "SparkZen Clothing started as four friends and a sketchbook. Discover our mission, our story, and our signature streetwear pieces.",
       },
       { property: "og:title", content: "About SparkZen — From a Spark to a Movement" },
       {
         property: "og:description",
-        content: "The story, mission and people behind SparkZen Clothing.",
+        content: "The story, mission, and signature streetwear pieces of SparkZen Clothing.",
       },
     ],
   }),
@@ -42,14 +49,24 @@ const values = [
   [Leaf, "Made Responsibly", "Small batches, less waste, fair studios."],
 ];
 
-const team = [
-  ["Vasantharajan", "Founder & Creative Director", team1],
-  ["Murugesan", "Head of Production", team2],
-  ["Ranish", "Design Lead", team3],
-  ["Irfan", "Community & Growth", team4],
-];
-
 function About() {
+  const { products: loadedProducts } = Route.useLoaderData();
+  const initialProducts =
+    loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts;
+  const [productList, setProductList] = useState<Product[]>(initialProducts);
+
+  useEffect(() => {
+    if (loadedProducts && loadedProducts.length > 0) {
+      setProductList(loadedProducts);
+    } else {
+      getProductsAsync().then((list) => {
+        if (list.length > 0) {
+          setProductList(list);
+        }
+      });
+    }
+  }, [loadedProducts]);
+
   return (
     <SiteLayout>
       <Crumbs items={[{ label: "Home", to: "/" }, { label: "About Us" }]} />
@@ -119,23 +136,26 @@ function About() {
         </ol>
       </section>
 
+      {/* Featured Products */}
       <section className="mt-16">
-        <p className="eyebrow">The Crew</p>
-        <h2 className="mt-2 text-2xl sm:text-3xl">Meet the People Behind SparkZen</h2>
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {team.map(([name, role, image]) => (
-            <div key={name} className="surface-card overflow-hidden rounded-2xl">
-              <img
-                src={image}
-                alt={name}
-                loading="lazy"
-                className="aspect-4/5 w-full object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-base">{name}</h3>
-                <p className="mt-0.5 text-xs font-semibold text-primary">{role}</p>
-              </div>
-            </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="eyebrow">Featured Products</p>
+            <h2 className="mt-2 text-2xl sm:text-3xl">Signature Drops & Bestsellers</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Explore the pieces that define the SparkZen aesthetic.
+            </p>
+          </div>
+          <Link
+            to="/shop"
+            className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+          >
+            View all products <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {productList.slice(0, 4).map((p) => (
+            <ProductCard key={p.slug} product={p} />
           ))}
         </div>
       </section>

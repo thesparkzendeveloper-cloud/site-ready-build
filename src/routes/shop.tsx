@@ -16,9 +16,7 @@ interface ShopSearch {
   category?: string | undefined;
   size?: string | undefined;
   color?: string | undefined;
-  material?: string | undefined;
   maxPrice?: number | undefined;
-  inStock?: boolean | undefined;
   search?: string | undefined;
   sort?: string | undefined;
 }
@@ -29,9 +27,7 @@ export const Route = createFileRoute("/shop")({
       category: typeof search["category"] === "string" ? search["category"] : undefined,
       size: typeof search["size"] === "string" ? search["size"] : undefined,
       color: typeof search["color"] === "string" ? search["color"] : undefined,
-      material: typeof search["material"] === "string" ? search["material"] : undefined,
       maxPrice: search["maxPrice"] ? Number(search["maxPrice"]) : undefined,
-      inStock: search["inStock"] === "true" || search["inStock"] === true ? true : undefined,
       search: typeof search["search"] === "string" ? search["search"] : undefined,
       sort: typeof search["sort"] === "string" ? search["sort"] : undefined,
     };
@@ -46,7 +42,7 @@ export const Route = createFileRoute("/shop")({
       {
         name: "description",
         content:
-          "Browse every SparkZen piece: hoodies, oversized tees, sweatshirts, caps and accessories. Filter by size, colour, price and material.",
+          "Browse every SparkZen piece: hoodies, oversized tees, sweatshirts, caps and accessories. Filter by category, size, colour and price.",
       },
       { property: "og:title", content: "Shop All Streetwear — SparkZen Clothing" },
       {
@@ -66,7 +62,6 @@ const colors = [
   ["Grey", "oklch(0.72 0.008 70)"],
   ["Beige", "oklch(0.88 0.03 85)"],
 ];
-const materials = ["Cotton", "Fleece", "French Terry", "Polyester Blend"];
 
 function Shop() {
   const { products: loadedProducts, categories: loadedCategories } = Route.useLoaderData();
@@ -82,11 +77,10 @@ function Shop() {
   const [activeCategory, setActiveCategory] = useState<string>(searchParams.category || "All Products");
   const [sizeFilter, setSizeFilter] = useState<string | null>(searchParams.size || null);
   const [colorFilter, setColorFilter] = useState<string | null>(searchParams.color || null);
-  const [materialFilter, setMaterialFilter] = useState<string | null>(searchParams.material || null);
   const [maxPrice, setMaxPrice] = useState<number>(searchParams.maxPrice || 10000);
-  const [inStockOnly, setInStockOnly] = useState<boolean>(searchParams.inStock ?? false);
   const [sort, setSort] = useState<string>(searchParams.sort || "featured");
   const [searchQuery, setSearchQuery] = useState<string>(searchParams.search || "");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (loadedProducts && loadedProducts.length > 0) {
@@ -101,9 +95,7 @@ function Shop() {
     setActiveCategory(searchParams.category || "All Products");
     setSizeFilter(searchParams.size || null);
     setColorFilter(searchParams.color || null);
-    setMaterialFilter(searchParams.material || null);
     setMaxPrice(searchParams.maxPrice || 10000);
-    setInStockOnly(Boolean(searchParams.inStock));
     setSearchQuery(searchParams.search || "");
     setSort(searchParams.sort || "featured");
   }, [searchParams]);
@@ -115,12 +107,54 @@ function Shop() {
       p.productType?.toLowerCase() === activeCategory.toLowerCase() ||
       p.name.toLowerCase().includes(activeCategory.toLowerCase());
 
-    const matchesSize = !sizeFilter || (p.sizes && p.sizes.includes(sizeFilter));
-    const matchesColor = !colorFilter || (p.colors && p.colors.includes(colorFilter));
-    const matchesMaterial =
-      !materialFilter || (p.material && p.material.toLowerCase().includes(materialFilter.toLowerCase()));
+    const matchesSize =
+      !sizeFilter ||
+      (() => {
+        if (p.sizes && p.sizes.length > 0) return p.sizes.includes(sizeFilter);
+        if (p.options && p.options.length > 0) {
+          const sizeOpt = p.options.find((opt) => opt.name.toLowerCase() === "size");
+          if (sizeOpt) return sizeOpt.values.includes(sizeFilter);
+        }
+        if (p.variants && p.variants.length > 0) {
+          return p.variants.some((v) =>
+            v.selectedOptions?.some(
+              (opt) => opt.name.toLowerCase() === "size" && opt.value === sizeFilter
+            )
+          );
+        }
+        const isAccessory =
+          p.category.toLowerCase().includes("accessories") ||
+          p.category.toLowerCase().includes("cap") ||
+          p.name.toLowerCase().includes("keychain") ||
+          p.name.toLowerCase().includes("tote");
+        return !isAccessory;
+      })();
+
+    const matchesColor =
+      !colorFilter ||
+      (() => {
+        if (p.colors && p.colors.length > 0) {
+          return p.colors.some((c) => c.toLowerCase() === colorFilter.toLowerCase());
+        }
+        if (p.options && p.options.length > 0) {
+          const colorOpt = p.options.find(
+            (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
+          );
+          if (colorOpt) return colorOpt.values.some((v) => v.toLowerCase() === colorFilter.toLowerCase());
+        }
+        if (p.variants && p.variants.length > 0) {
+          return p.variants.some((v) =>
+            v.selectedOptions?.some(
+              (opt) =>
+                (opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour") &&
+                opt.value.toLowerCase() === colorFilter.toLowerCase()
+            )
+          );
+        }
+        return true;
+      })();
+
     const matchesPrice = p.price <= maxPrice;
-    const matchesInStock = !inStockOnly || p.availableForSale !== false;
     const matchesSearch =
       !searchQuery.trim() ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -130,9 +164,7 @@ function Shop() {
       matchesCategory &&
       matchesSize &&
       matchesColor &&
-      matchesMaterial &&
       matchesPrice &&
-      matchesInStock &&
       matchesSearch
     );
   });
@@ -152,30 +184,26 @@ function Shop() {
         </p>
       </header>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
+      {/* Main Category Bar (Placed directly under header banner) */}
+      <div className="mt-6 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        {categoryList.map((c) => (
+          <button
+            key={c.name}
+            onClick={() => setActiveCategory(c.name)}
+            className={`whitespace-nowrap shrink-0 rounded-full px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
+              activeCategory === c.name
+                ? "bg-primary text-primary-foreground shadow-sm scale-105"
+                : "bg-surface border border-border text-foreground hover:border-primary hover:bg-muted/50"
+            }`}
+          >
+            {c.name} <span className="text-[11px] opacity-70">({c.count})</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-6 lg:mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
         {/* Sidebar (Desktop) */}
         <aside className="hidden lg:block space-y-7">
-          <section>
-            <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Categories</h2>
-            <ul className="mt-3 space-y-1">
-              {categoryList.map((c) => (
-                <li key={c.name}>
-                  <button
-                    onClick={() => setActiveCategory(c.name)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
-                      activeCategory === c.name
-                        ? "bg-primary font-bold text-primary-foreground"
-                        : "hover:bg-muted"
-                    }`}
-                  >
-                    <span>{c.name}</span>
-                    <span className="text-xs opacity-70">{c.count}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
           <section>
             <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Price</h2>
             <input
@@ -198,7 +226,7 @@ function Shop() {
                 <button
                   key={s}
                   onClick={() => setSizeFilter(sizeFilter === s ? null : s)}
-                  className={`h-9 w-11 rounded-lg border text-sm font-bold transition-colors ${
+                  className={`h-9 w-11 rounded-lg border text-sm font-bold transition-colors cursor-pointer ${
                     sizeFilter === s
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border hover:border-primary"
@@ -219,7 +247,7 @@ function Shop() {
                   onClick={() => setColorFilter(colorFilter === name ? null : (name ?? null))}
                   aria-label={name}
                   title={name}
-                  className={`h-7 w-7 rounded-full ring-2 transition-transform hover:scale-110 ${
+                  className={`h-7 w-7 rounded-full ring-2 transition-transform hover:scale-110 cursor-pointer ${
                     colorFilter === name ? "ring-primary scale-110" : "ring-border"
                   }`}
                   style={{ background: value }}
@@ -227,50 +255,25 @@ function Shop() {
               ))}
             </div>
           </section>
-
-          <section>
-            <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Material</h2>
-            <ul className="mt-3 space-y-2 text-sm">
-              {materials.map((m) => (
-                <li key={m}>
-                  <label className="flex items-center gap-2 text-muted-foreground cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={materialFilter === m}
-                      onChange={(e) => setMaterialFilter(e.target.checked ? m : null)}
-                      className="accent-primary"
-                    />{" "}
-                    {m}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section>
-            <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Availability</h2>
-            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={inStockOnly}
-                    onChange={(e) => setInStockOnly(e.target.checked)}
-                    className="accent-primary"
-                  />{" "}
-                  In stock
-                </label>
-              </li>
-            </ul>
-          </section>
         </aside>
 
         {/* Product Grid */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-            <p className="text-sm text-muted-foreground">
-              Showing <span className="font-bold text-foreground">{list.length}</span> products
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Showing <span className="font-bold text-foreground">{list.length}</span> products
+              </p>
+
+              {/* Mobile Filter Toggle */}
+              <button
+                onClick={() => setMobileFiltersOpen((v) => !v)}
+                className="flex items-center gap-2 text-xs font-bold border border-border rounded-lg px-3 py-1.5 lg:hidden hover:bg-muted cursor-pointer"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5 text-primary" />
+                <span>{mobileFiltersOpen ? "Hide Filters" : "Filters"}</span>
+              </button>
+            </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 sm:w-64">
@@ -285,12 +288,12 @@ function Shop() {
               </div>
 
               <label className="flex items-center gap-2 text-sm shrink-0">
-                <SlidersHorizontal className="h-4 w-4 text-primary" />
+                <SlidersHorizontal className="h-4 w-4 text-primary hidden sm:inline" />
                 <span className="sr-only">Sort by</span>
                 <select
                   value={sort}
                   onChange={(e) => setSort(e.target.value)}
-                  className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer"
                 >
                   <option value="featured">Featured</option>
                   <option value="low">Price: Low to High</option>
@@ -299,6 +302,82 @@ function Shop() {
               </label>
             </div>
           </div>
+
+          {/* Mobile Filters Collapsible Drawer */}
+          {mobileFiltersOpen && (
+            <div className="mt-4 p-4 rounded-xl border border-border bg-muted/40 space-y-5 lg:hidden">
+              <section>
+                <h3 className="text-xs font-extrabold uppercase tracking-[0.16em]">Category</h3>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {categoryList.map((c) => (
+                    <button
+                      key={c.name}
+                      onClick={() => setActiveCategory(c.name)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                        activeCategory === c.name
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-background border border-border text-foreground hover:border-primary"
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs font-extrabold uppercase tracking-[0.16em]">Price</h3>
+                <input
+                  type="range"
+                  min={299}
+                  max={10000}
+                  step={100}
+                  value={maxPrice}
+                  aria-label="Maximum price"
+                  onChange={(e) => setMaxPrice(Number(e.target.value))}
+                  className="mt-3 w-full accent-primary"
+                />
+                <p className="mt-1 text-sm text-muted-foreground">Up to ₹{maxPrice}</p>
+              </section>
+
+              <section>
+                <h3 className="text-xs font-extrabold uppercase tracking-[0.16em]">Size</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {sizes.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSizeFilter(sizeFilter === s ? null : s)}
+                      className={`h-8 w-10 rounded-lg border text-xs font-bold transition-colors cursor-pointer ${
+                        sizeFilter === s
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border hover:border-primary"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs font-extrabold uppercase tracking-[0.16em]">Colour</h3>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {colors.map(([name, value]) => (
+                    <button
+                      key={name}
+                      onClick={() => setColorFilter(colorFilter === name ? null : (name ?? null))}
+                      aria-label={name}
+                      title={name}
+                      className={`h-7 w-7 rounded-full ring-2 transition-transform cursor-pointer ${
+                        colorFilter === name ? "ring-primary scale-110" : "ring-border"
+                      }`}
+                      style={{ background: value }}
+                    />
+                  ))}
+                </div>
+              </section>
+            </div>
+          )}
 
           {list.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted-foreground">
