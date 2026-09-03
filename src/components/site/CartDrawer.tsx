@@ -25,16 +25,7 @@ export function CartDrawer() {
   } = useCart();
 
   return (
-    <Sheet open={isCartOpen} onOpenChange={setIsCartOpen} modal={false}>
-      {/* Backdrop overlay when open with outside click to close */}
-      {isCartOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 transition-opacity animate-in fade-in-0 duration-200"
-          onClick={() => setIsCartOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
+    <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
       <SheetContent
         side="right"
         className="flex h-svh h-[100svh] max-h-[100svh] w-full flex-col p-0 gap-0 overflow-hidden sm:max-w-md bg-background shadow-2xl z-50"

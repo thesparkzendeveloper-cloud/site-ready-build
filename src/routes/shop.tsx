@@ -67,11 +67,9 @@ function Shop() {
   const { products: loadedProducts, categories: loadedCategories } = Route.useLoaderData();
   const searchParams = Route.useSearch();
 
-  const [productList, setProductList] = useState<Product[]>(
-    loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts
-  );
+  const [productList, setProductList] = useState<Product[]>(loadedProducts || []);
   const [categoryList, setCategoryList] = useState<Array<{ name: string; count: number }>>(
-    loadedCategories && loadedCategories.length > 0 ? loadedCategories : fallbackCategories
+    loadedCategories || [{ name: "All Products", count: 0 }]
   );
 
   const [activeCategory, setActiveCategory] = useState<string>(searchParams.category || "All Products");
@@ -133,22 +131,32 @@ function Shop() {
     const matchesColor =
       !colorFilter ||
       (() => {
+        const target = colorFilter.toLowerCase();
         if (p.colors && p.colors.length > 0) {
-          return p.colors.some((c) => c.toLowerCase() === colorFilter.toLowerCase());
+          return p.colors.some((c) => {
+            const cl = c.toLowerCase();
+            return cl === target || cl.includes(target) || target.includes(cl);
+          });
         }
         if (p.options && p.options.length > 0) {
           const colorOpt = p.options.find(
             (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
           );
-          if (colorOpt) return colorOpt.values.some((v) => v.toLowerCase() === colorFilter.toLowerCase());
+          if (colorOpt) {
+            return colorOpt.values.some((v) => {
+              const vl = v.toLowerCase();
+              return vl === target || vl.includes(target) || target.includes(vl);
+            });
+          }
         }
         if (p.variants && p.variants.length > 0) {
           return p.variants.some((v) =>
-            v.selectedOptions?.some(
-              (opt) =>
-                (opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour") &&
-                opt.value.toLowerCase() === colorFilter.toLowerCase()
-            )
+            v.selectedOptions?.some((opt) => {
+              const isColorName = opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour";
+              if (!isColorName) return false;
+              const vl = opt.value.toLowerCase();
+              return vl === target || vl.includes(target) || target.includes(vl);
+            })
           );
         }
         return true;

@@ -6,7 +6,6 @@ import { Crumbs } from "@/components/site/Crumbs";
 import { TrustBar } from "@/components/site/TrustBar";
 import { ProductCard } from "@/components/site/ProductCard";
 import {
-  products as fallbackProducts,
   getProductsAsync,
   type Product,
 } from "@/lib/products";
@@ -51,9 +50,7 @@ const values = [
 
 function About() {
   const { products: loadedProducts } = Route.useLoaderData();
-  const initialProducts =
-    loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts;
-  const [productList, setProductList] = useState<Product[]>(initialProducts);
+  const [productList, setProductList] = useState<Product[]>(loadedProducts || []);
 
   useEffect(() => {
     if (loadedProducts && loadedProducts.length > 0) {

@@ -33,8 +33,7 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const { products: loadedProducts } = Route.useLoaderData();
-  const initialProducts = loadedProducts && loadedProducts.length > 0 ? loadedProducts : fallbackProducts;
-  const [productList, setProductList] = useState<Product[]>(initialProducts);
+  const [productList, setProductList] = useState<Product[]>(loadedProducts || []);
 
   useEffect(() => {
     if (loadedProducts && loadedProducts.length > 0) {
@@ -48,7 +47,7 @@ function Home() {
     }
   }, [loadedProducts]);
 
-  const featured = (productList[0] || fallbackProducts[0])!;
+  const featured = productList[0];
 
   const categoriesWithDynamicImages = [
     {
@@ -126,38 +125,42 @@ function Home() {
       </section>
 
       {/* Featured look */}
-      <section className="mt-6 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <div className="surface-card flex flex-col gap-6 rounded-2xl p-6 sm:flex-row sm:items-center">
-          <img
-            src={featured.image}
-            alt={featured.name}
-            className="h-56 w-full rounded-xl object-cover sm:w-48"
-          />
-          <div>
-            <p className="eyebrow">Featured Look</p>
-            <h2 className="mt-2 text-2xl">{featured.name}</h2>
-            <p className="mt-2 max-w-md text-sm text-muted-foreground">{featured.description}</p>
-            <div className="mt-4 flex items-center gap-3">
-              <span className="text-xl font-extrabold text-primary">
-                {formatPrice(featured.price, featured.currencyCode)}
-              </span>
-              {featured.compareAt && (
-                <span className="text-sm text-muted-foreground line-through">
-                  {formatPrice(featured.compareAt, featured.currencyCode)}
+      {featured && (
+        <section className="mt-6 grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="surface-card flex flex-col gap-6 rounded-2xl p-6 sm:flex-row sm:items-center">
+            {featured.image && (
+              <img
+                src={featured.image}
+                alt={featured.name}
+                className="h-56 w-full rounded-xl object-cover sm:w-48"
+              />
+            )}
+            <div>
+              <p className="eyebrow">{featured.category || "Featured Look"}</p>
+              <h2 className="mt-2 text-2xl">{featured.name}</h2>
+              <p className="mt-2 max-w-md text-sm text-muted-foreground">{featured.description}</p>
+              <div className="mt-4 flex items-center gap-3">
+                <span className="text-xl font-extrabold text-primary">
+                  {formatPrice(featured.price, featured.currencyCode)}
                 </span>
-              )}
+                {featured.compareAt && (
+                  <span className="text-sm text-muted-foreground line-through">
+                    {formatPrice(featured.compareAt, featured.currencyCode)}
+                  </span>
+                )}
+              </div>
+              <Link
+                to="/product/$slug"
+                params={{ slug: featured.slug }}
+                className="mt-5 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-ink-foreground hover:bg-primary"
+              >
+                View Product <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
-            <Link
-              to="/product/$slug"
-              params={{ slug: featured.slug }}
-              className="mt-5 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-ink-foreground hover:bg-primary"
-            >
-              View Product <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
-        </div>
-        <TrustBar variant="red" />
-      </section>
+          <TrustBar variant="red" />
+        </section>
+      )}
 
       {/* Categories */}
       <section className="mt-14">

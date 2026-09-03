@@ -5,7 +5,7 @@ import { Logo } from "./Logo";
 import { useCart } from "@/context/CartContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getProductsAsync, products as fallbackProducts, formatPrice, type Product } from "@/lib/products";
+import { getProductsAsync, formatPrice, type Product } from "@/lib/products";
 
 const categoriesList = [
   "Polo T-Shirts",
@@ -36,7 +36,7 @@ export function Header() {
   // Search Modal State
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [allProducts, setAllProducts] = useState<Product[]>(fallbackProducts);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   // Mobile Filter States
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
