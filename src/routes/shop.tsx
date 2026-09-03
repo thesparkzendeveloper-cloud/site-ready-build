@@ -1,14 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { SlidersHorizontal, Search } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { SlidersHorizontal, Search, X, RotateCcw } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { Crumbs } from "@/components/site/Crumbs";
 import { ProductCard } from "@/components/site/ProductCard";
 import {
-  categories as fallbackCategories,
-  products as fallbackProducts,
   getProductsAsync,
   getCategoriesAsync,
+  getColorCode,
   type Product,
 } from "@/lib/products";
 
@@ -54,8 +53,8 @@ export const Route = createFileRoute("/shop")({
   component: Shop,
 });
 
-const sizes = ["S", "M", "L", "XL", "XXL"];
-const colors = [
+const defaultSizes = ["S", "M", "L", "XL", "XXL"];
+const defaultColors: [string, string][] = [
   ["Black", "oklch(0.16 0.008 40)"],
   ["Red", "oklch(0.53 0.216 27.5)"],
   ["White", "oklch(0.99 0 0)"],
@@ -98,44 +97,113 @@ function Shop() {
     setSort(searchParams.sort || "featured");
   }, [searchParams]);
 
+  // Extract all unique sizes available across active products
+  const availableSizes = useMemo(() => {
+    const extracted = new Set<string>();
+    productList.forEach((p) => {
+      if (p.sizes && p.sizes.length > 0) {
+        p.sizes.forEach((s) => extracted.add(s));
+      }
+      const sizeOpt = p.options?.find((opt) => opt.name.toLowerCase() === "size");
+      if (sizeOpt) {
+        sizeOpt.values.forEach((v) => extracted.add(v));
+      }
+      p.variants?.forEach((v) => {
+        const sVal = v.selectedOptions?.find((opt) => opt.name.toLowerCase() === "size")?.value;
+        if (sVal) extracted.add(sVal);
+      });
+    });
+    return extracted.size > 0 ? Array.from(extracted) : defaultSizes;
+  }, [productList]);
+
+  // Extract all unique colors available across active products
+  const availableColors = useMemo(() => {
+    const extracted = new Set<string>();
+    productList.forEach((p) => {
+      if (p.colors && p.colors.length > 0) {
+        p.colors.forEach((c) => extracted.add(c));
+      }
+      const colorOpt = p.options?.find(
+        (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
+      );
+      if (colorOpt) {
+        colorOpt.values.forEach((v) => extracted.add(v));
+      }
+      p.variants?.forEach((v) => {
+        const cVal = v.selectedOptions?.find(
+          (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
+        )?.value;
+        if (cVal) extracted.add(cVal);
+      });
+    });
+    return extracted.size > 0
+      ? Array.from(extracted).map((c) => [c, getColorCode(c)] as [string, string])
+      : defaultColors;
+  }, [productList]);
+
+  // Check if any filter is active
+  const hasActiveFilters =
+    activeCategory !== "All Products" ||
+    sizeFilter !== null ||
+    colorFilter !== null ||
+    searchQuery.trim() !== "" ||
+    maxPrice < 10000;
+
+  const handleClearAllFilters = () => {
+    setActiveCategory("All Products");
+    setSizeFilter(null);
+    setColorFilter(null);
+    setMaxPrice(10000);
+    setSearchQuery("");
+  };
+
   let list = productList.filter((p) => {
+    // 1. Category / Collection Filter
+    const targetCat = activeCategory.toLowerCase().trim();
     const matchesCategory =
       activeCategory === "All Products" ||
-      p.category.toLowerCase() === activeCategory.toLowerCase() ||
-      p.productType?.toLowerCase() === activeCategory.toLowerCase() ||
-      p.name.toLowerCase().includes(activeCategory.toLowerCase());
+      p.category?.toLowerCase() === targetCat ||
+      p.productType?.toLowerCase() === targetCat ||
+      p.subtitle?.toLowerCase() === targetCat ||
+      p.collections?.some(
+        (c) => c.title.toLowerCase() === targetCat || c.handle.toLowerCase() === targetCat
+      ) ||
+      p.tags?.some((t) => t.toLowerCase() === targetCat) ||
+      p.name.toLowerCase().includes(targetCat);
 
+    // 2. Size Filter
     const matchesSize =
       !sizeFilter ||
       (() => {
-        if (p.sizes && p.sizes.length > 0) return p.sizes.includes(sizeFilter);
+        const targetSize = sizeFilter.toLowerCase().trim();
+        if (p.sizes && p.sizes.length > 0) {
+          return p.sizes.some((s) => s.toLowerCase().trim() === targetSize);
+        }
         if (p.options && p.options.length > 0) {
           const sizeOpt = p.options.find((opt) => opt.name.toLowerCase() === "size");
-          if (sizeOpt) return sizeOpt.values.includes(sizeFilter);
+          if (sizeOpt) {
+            return sizeOpt.values.some((v) => v.toLowerCase().trim() === targetSize);
+          }
         }
         if (p.variants && p.variants.length > 0) {
           return p.variants.some((v) =>
             v.selectedOptions?.some(
-              (opt) => opt.name.toLowerCase() === "size" && opt.value === sizeFilter
+              (opt) => opt.name.toLowerCase() === "size" && opt.value.toLowerCase().trim() === targetSize
             )
           );
         }
-        const isAccessory =
-          p.category.toLowerCase().includes("accessories") ||
-          p.category.toLowerCase().includes("cap") ||
-          p.name.toLowerCase().includes("keychain") ||
-          p.name.toLowerCase().includes("tote");
-        return !isAccessory;
+        return false;
       })();
 
+    // 3. Color Filter
     const matchesColor =
       !colorFilter ||
       (() => {
-        const target = colorFilter.toLowerCase();
+        const targetColor = colorFilter.toLowerCase().trim();
         if (p.colors && p.colors.length > 0) {
           return p.colors.some((c) => {
-            const cl = c.toLowerCase();
-            return cl === target || cl.includes(target) || target.includes(cl);
+            const cl = c.toLowerCase().trim();
+            return cl === targetColor || cl.includes(targetColor) || targetColor.includes(cl);
           });
         }
         if (p.options && p.options.length > 0) {
@@ -144,8 +212,8 @@ function Shop() {
           );
           if (colorOpt) {
             return colorOpt.values.some((v) => {
-              const vl = v.toLowerCase();
-              return vl === target || vl.includes(target) || target.includes(vl);
+              const vl = v.toLowerCase().trim();
+              return vl === targetColor || vl.includes(targetColor) || targetColor.includes(vl);
             });
           }
         }
@@ -154,19 +222,22 @@ function Shop() {
             v.selectedOptions?.some((opt) => {
               const isColorName = opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour";
               if (!isColorName) return false;
-              const vl = opt.value.toLowerCase();
-              return vl === target || vl.includes(target) || target.includes(vl);
+              const vl = opt.value.toLowerCase().trim();
+              return vl === targetColor || vl.includes(targetColor) || targetColor.includes(vl);
             })
           );
         }
-        return true;
+        return false;
       })();
 
+    // 4. Price & Search Filter
     const matchesPrice = p.price <= maxPrice;
     const matchesSearch =
       !searchQuery.trim() ||
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase());
+      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.tags?.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return (
       matchesCategory &&
@@ -209,6 +280,62 @@ function Shop() {
         ))}
       </div>
 
+      {/* Active Filter Chips / Reset Bar */}
+      {hasActiveFilters && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 p-3 border border-border/60">
+          <span className="text-xs font-bold text-muted-foreground">Active Filters:</span>
+          {activeCategory !== "All Products" && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+              Category: {activeCategory}
+              <button
+                onClick={() => setActiveCategory("All Products")}
+                className="hover:text-destructive cursor-pointer"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {sizeFilter && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+              Size: {sizeFilter}
+              <button onClick={() => setSizeFilter(null)} className="hover:text-destructive cursor-pointer">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {colorFilter && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+              Color: {colorFilter}
+              <button onClick={() => setColorFilter(null)} className="hover:text-destructive cursor-pointer">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {searchQuery.trim() && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+              Search: "{searchQuery}"
+              <button onClick={() => setSearchQuery("")} className="hover:text-destructive cursor-pointer">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {maxPrice < 10000 && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary">
+              Max: ₹{maxPrice}
+              <button onClick={() => setMaxPrice(10000)} className="hover:text-destructive cursor-pointer">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={handleClearAllFilters}
+            className="ml-auto inline-flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+          >
+            <RotateCcw className="h-3 w-3" /> Reset All
+          </button>
+        </div>
+      )}
+
       <div className="mt-6 lg:mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
         {/* Sidebar (Desktop) */}
         <aside className="hidden lg:block space-y-7">
@@ -230,14 +357,14 @@ function Shop() {
           <section>
             <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Size</h2>
             <div className="mt-3 flex flex-wrap gap-2">
-              {sizes.map((s) => (
+              {availableSizes.map((s) => (
                 <button
                   key={s}
                   onClick={() => setSizeFilter(sizeFilter === s ? null : s)}
-                  className={`h-9 w-11 rounded-lg border text-sm font-bold transition-colors cursor-pointer ${
+                  className={`h-9 min-w-11 px-2.5 rounded-lg border text-sm font-bold transition-colors cursor-pointer ${
                     sizeFilter === s
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border hover:border-primary"
+                      : "border-border hover:border-primary text-foreground"
                   }`}
                 >
                   {s}
@@ -249,14 +376,14 @@ function Shop() {
           <section>
             <h2 className="text-xs font-extrabold uppercase tracking-[0.16em]">Colour</h2>
             <div className="mt-3 flex flex-wrap gap-2.5">
-              {colors.map(([name, value]) => (
+              {availableColors.map(([name, value]) => (
                 <button
                   key={name}
                   onClick={() => setColorFilter(colorFilter === name ? null : (name ?? null))}
                   aria-label={name}
                   title={name}
                   className={`h-7 w-7 rounded-full ring-2 transition-transform hover:scale-110 cursor-pointer ${
-                    colorFilter === name ? "ring-primary scale-110" : "ring-border"
+                    colorFilter === name ? "ring-primary scale-110 shadow-sm" : "ring-border/70"
                   }`}
                   style={{ background: value }}
                 />
@@ -351,11 +478,11 @@ function Shop() {
               <section>
                 <h3 className="text-xs font-extrabold uppercase tracking-[0.16em]">Size</h3>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {sizes.map((s) => (
+                  {availableSizes.map((s) => (
                     <button
                       key={s}
                       onClick={() => setSizeFilter(sizeFilter === s ? null : s)}
-                      className={`h-8 w-10 rounded-lg border text-xs font-bold transition-colors cursor-pointer ${
+                      className={`h-8 min-w-10 px-2 rounded-lg border text-xs font-bold transition-colors cursor-pointer ${
                         sizeFilter === s
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border hover:border-primary"
@@ -370,14 +497,14 @@ function Shop() {
               <section>
                 <h3 className="text-xs font-extrabold uppercase tracking-[0.16em]">Colour</h3>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {colors.map(([name, value]) => (
+                  {availableColors.map(([name, value]) => (
                     <button
                       key={name}
                       onClick={() => setColorFilter(colorFilter === name ? null : (name ?? null))}
                       aria-label={name}
                       title={name}
                       className={`h-7 w-7 rounded-full ring-2 transition-transform cursor-pointer ${
-                        colorFilter === name ? "ring-primary scale-110" : "ring-border"
+                        colorFilter === name ? "ring-primary scale-110 shadow-sm" : "ring-border/70"
                       }`}
                       style={{ background: value }}
                     />
@@ -388,11 +515,24 @@ function Shop() {
           )}
 
           {list.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              No products match these filters.
-            </p>
+            <div className="py-16 text-center space-y-3">
+              <p className="text-base font-bold text-foreground">
+                No products match these filters.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Try clearing some filters or searching for another streetwear piece.
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={handleClearAllFilters}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground hover:scale-105 transition-transform cursor-pointer"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" /> Clear All Filters
+                </button>
+              )}
+            </div>
           ) : (
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-6 grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {list.map((p) => (
                 <ProductCard key={p.slug} product={p} />
               ))}

@@ -38,6 +38,8 @@ export type Product = {
   gallery: string[];
   category: string;
   productType?: string | undefined;
+  collections?: Array<{ title: string; handle: string }> | undefined;
+  tags?: string[] | undefined;
   badge?: string | undefined;
   rating: number;
   reviews: number;
@@ -165,6 +167,8 @@ export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
     gallery,
     category: primaryCollection,
     productType: sp.productType,
+    collections: sp.collections?.nodes || [],
+    tags: sp.tags || [],
     rating: 4.9,
     reviews: 128,
     description: sp.description || "Premium streetwear piece by SparkZen.",
@@ -221,25 +225,60 @@ export async function getCategoriesAsync(): Promise<Array<{ name: string; count:
     ]);
 
     const mappedProducts = (shopifyProducts || []).map(mapShopifyProductToProduct);
-    const categoryCounts: Record<string, number> = {};
+    const categoryCounts: Map<string, number> = new Map();
 
-    for (const p of mappedProducts) {
-      if (p.category && p.category !== "Home page") {
-        categoryCounts[p.category] = (categoryCounts[p.category] || 0) + 1;
+    // Standard baseline categories
+    const standardCategories = [
+      "Hoodies",
+      "Oversized Tees",
+      "T-Shirts",
+      "Sweatshirts",
+      "Long Sleeves",
+      "Accessories",
+    ];
+
+    for (const cat of standardCategories) {
+      categoryCounts.set(cat, 0);
+    }
+
+    // Include custom Shopify Collections
+    if (cols && cols.length > 0) {
+      for (const col of cols) {
+        if (col.title && col.title !== "Home page") {
+          if (!categoryCounts.has(col.title)) {
+            categoryCounts.set(col.title, 0);
+          }
+        }
       }
     }
 
-    if (cols && cols.length > 0) {
-      for (const col of cols) {
-        if (col.title !== "Home page" && categoryCounts[col.title] === undefined) {
-          categoryCounts[col.title] = col.products?.totalCount || 0;
+    // Count matching products for each category
+    for (const p of mappedProducts) {
+      let matchedAny = false;
+      if (p.category && categoryCounts.has(p.category)) {
+        categoryCounts.set(p.category, (categoryCounts.get(p.category) || 0) + 1);
+        matchedAny = true;
+      }
+
+      if (p.collections && p.collections.length > 0) {
+        for (const c of p.collections) {
+          if (c.title !== "Home page" && categoryCounts.has(c.title)) {
+            if (c.title !== p.category) {
+              categoryCounts.set(c.title, (categoryCounts.get(c.title) || 0) + 1);
+            }
+            matchedAny = true;
+          }
         }
+      }
+
+      if (!matchedAny && p.category && p.category !== "Home page" && p.category !== "Streetwear") {
+        categoryCounts.set(p.category, (categoryCounts.get(p.category) || 0) + 1);
       }
     }
 
     const categoriesResult = [
       { name: "All Products", count: mappedProducts.length },
-      ...Object.entries(categoryCounts).map(([name, count]) => ({ name, count })),
+      ...Array.from(categoryCounts.entries()).map(([name, count]) => ({ name, count })),
     ];
 
     return categoriesResult;

@@ -1,23 +1,29 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Search, ShoppingCart, Menu, ChevronDown, ChevronRight, Sparkles, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Logo } from "./Logo";
 import { useCart } from "@/context/CartContext";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getProductsAsync, formatPrice, type Product } from "@/lib/products";
+import {
+  getProductsAsync,
+  getCategoriesAsync,
+  getColorCode,
+  formatPrice,
+  type Product,
+} from "@/lib/products";
 
-const categoriesList = [
-  "Polo T-Shirts",
-  "Round Neck T-Shirts",
-  "Kids T-Shirts",
-  "Women's T-Shirts",
+const defaultCategories = [
   "Hoodies",
-  "Oversized T-Shirts",
+  "Oversized Tees",
+  "Sweatshirts",
+  "T-Shirts",
+  "Long Sleeves",
+  "Accessories",
 ];
 
-const sizesList = ["S", "M", "L", "XL", "XXL"];
-const colorsList = [
+const defaultSizesList = ["S", "M", "L", "XL", "XXL"];
+const defaultColorsList: [string, string][] = [
   ["Black", "oklch(0.16 0.008 40)"],
   ["Red", "oklch(0.53 0.216 27.5)"],
   ["White", "oklch(0.99 0 0)"],
@@ -37,6 +43,7 @@ export function Header() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [categoriesList, setCategoriesList] = useState<string[]>(defaultCategories);
 
   // Mobile Filter States
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
@@ -52,7 +59,52 @@ export function Header() {
         setAllProducts(prods);
       }
     });
+
+    getCategoriesAsync().then((cats) => {
+      if (cats && cats.length > 0) {
+        const filtered = cats
+          .map((c) => c.name)
+          .filter((name) => name !== "All Products" && name !== "Home page");
+        if (filtered.length > 0) {
+          setCategoriesList(filtered);
+        }
+      }
+    });
   }, []);
+
+  const sizesList = useMemo(() => {
+    const extracted = new Set<string>();
+    allProducts.forEach((p) => {
+      if (p.sizes && p.sizes.length > 0) p.sizes.forEach((s) => extracted.add(s));
+      const sizeOpt = p.options?.find((opt) => opt.name.toLowerCase() === "size");
+      if (sizeOpt) sizeOpt.values.forEach((v) => extracted.add(v));
+      p.variants?.forEach((v) => {
+        const sVal = v.selectedOptions?.find((opt) => opt.name.toLowerCase() === "size")?.value;
+        if (sVal) extracted.add(sVal);
+      });
+    });
+    return extracted.size > 0 ? Array.from(extracted) : defaultSizesList;
+  }, [allProducts]);
+
+  const colorsList = useMemo(() => {
+    const extracted = new Set<string>();
+    allProducts.forEach((p) => {
+      if (p.colors && p.colors.length > 0) p.colors.forEach((c) => extracted.add(c));
+      const colorOpt = p.options?.find(
+        (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
+      );
+      if (colorOpt) colorOpt.values.forEach((v) => extracted.add(v));
+      p.variants?.forEach((v) => {
+        const cVal = v.selectedOptions?.find(
+          (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
+        )?.value;
+        if (cVal) extracted.add(cVal);
+      });
+    });
+    return extracted.size > 0
+      ? Array.from(extracted).map((c) => [c, getColorCode(c)] as [string, string])
+      : defaultColorsList;
+  }, [allProducts]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
