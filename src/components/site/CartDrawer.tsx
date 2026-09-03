@@ -171,7 +171,7 @@ export function CartDrawer() {
             </div>
 
             {/* Footer - Fixed at bottom with mt-auto, shrink-0, and safe-area padding */}
-            <div className="shrink-0 mt-auto border-t border-border bg-background p-4 sm:p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-3.5 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 mb-20">
+            <div className="shrink-0 mt-auto border-t border-border bg-background p-4 sm:p-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] space-y-3.5 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] z-10 mb-20 md:mb-0">
               <div className="space-y-1.5">
                 <div className="flex justify-between text-sm text-muted-foreground">
                   <span>Subtotal</span>
