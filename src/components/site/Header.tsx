@@ -277,7 +277,11 @@ export function Header() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="left"
-          className="flex h-full h-[100dvh] max-h-[100dvh] w-[85vw] max-w-xs sm:max-w-sm flex-col p-0 gap-0 bg-background border-r border-border overflow-hidden"
+          className="flex h-full h-[100svh] max-h-[100svh] w-[85vw] max-w-xs sm:max-w-sm flex-col p-0 gap-0 bg-background border-r border-border overflow-hidden"
+          style={{
+            height: "100svh",
+            maxHeight: "100svh",
+          }}
         >
           {/* Drawer Header with SparkZen Logo */}
           <SheetHeader className="border-b border-border/80 px-5 py-4 text-left shrink-0">

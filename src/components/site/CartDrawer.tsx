@@ -28,10 +28,10 @@ export function CartDrawer() {
     <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
       <SheetContent
         side="right"
-        className="flex h-[100dvh] max-h-[100dvh] w-full flex-col p-0 gap-0 overflow-hidden sm:max-w-md bg-background"
+        className="flex h-svh h-[100svh] max-h-[100svh] w-full flex-col p-0 gap-0 overflow-hidden sm:max-w-md bg-background"
         style={{
-          height: "100dvh",
-          maxHeight: "100dvh",
+          height: "100svh",
+          maxHeight: "100svh",
         }}
       >
         {/* Header - Fixed at Top */}
