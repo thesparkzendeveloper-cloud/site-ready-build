@@ -287,3 +287,98 @@ export async function getCategoriesAsync(): Promise<Array<{ name: string; count:
     return [{ name: "All Products", count: 0 }];
   }
 }
+
+export type CollectionItem = {
+  id: string;
+  title: string;
+  handle: string;
+  description?: string;
+  image: string;
+  count?: number;
+};
+
+export async function getShopifyCollectionsAsync(): Promise<CollectionItem[]> {
+  try {
+    const [cols, shopifyProducts] = await Promise.all([
+      fetchShopifyCollections(),
+      fetchShopifyProducts(),
+    ]);
+
+    const mappedProducts = (shopifyProducts || []).map(mapShopifyProductToProduct);
+
+    // If Shopify has collections created (other than "Home page")
+    const validCollections = (cols || []).filter(
+      (c) => c.title && c.title !== "Home page" && c.title !== "Frontpage"
+    );
+
+    if (validCollections.length > 0) {
+      return validCollections.map((col) => {
+        const matchingProducts = mappedProducts.filter(
+          (p) =>
+            p.collections?.some(
+              (c) => c.handle === col.handle || c.title.toLowerCase() === col.title.toLowerCase()
+            ) ||
+            p.category.toLowerCase() === col.title.toLowerCase() ||
+            p.productType?.toLowerCase() === col.title.toLowerCase()
+        );
+
+        const firstProduct = matchingProducts[0];
+        const img =
+          col.image?.url ||
+          col.products?.nodes?.[0]?.featuredImage?.url ||
+          firstProduct?.image ||
+          heroHoodie;
+
+        return {
+          id: col.id || col.handle,
+          title: col.title,
+          handle: col.handle,
+          description: col.description || `Explore the ${col.title} collection`,
+          image: img,
+          count: matchingProducts.length || col.products?.totalCount || 0,
+        };
+      });
+    }
+
+    // Dynamic extraction from product categories/types if no collections are configured yet in Shopify
+    const uniqueCategories = Array.from(
+      new Set(
+        mappedProducts
+          .map((p) => p.category)
+          .filter((c) => c && c !== "Home page" && c !== "Streetwear")
+      )
+    );
+
+    if (uniqueCategories.length > 0) {
+      return uniqueCategories.map((catName) => {
+        const matchingProducts = mappedProducts.filter((p) => p.category === catName);
+        const first = matchingProducts[0];
+        return {
+          id: catName.toLowerCase().replace(/\s+/g, "-"),
+          title: catName,
+          handle: catName.toLowerCase().replace(/\s+/g, "-"),
+          description: `Shop our signature ${catName}`,
+          image: first?.image || heroHoodie,
+          count: matchingProducts.length,
+        };
+      });
+    }
+
+    // Default streetwear collections
+    const defaults = ["Hoodies", "Oversized Tees", "Sweatshirts", "Accessories"];
+    return defaults.map((catName, idx) => {
+      const p = mappedProducts.find((prod) => prod.category === catName) || mappedProducts[idx];
+      return {
+        id: catName.toLowerCase().replace(/\s+/g, "-"),
+        title: catName,
+        handle: catName.toLowerCase().replace(/\s+/g, "-"),
+        description: `Shop our signature ${catName}`,
+        image: p?.image || heroHoodie,
+        count: 0,
+      };
+    });
+  } catch (e) {
+    console.warn("Shopify collections fetch failed:", e);
+    return [];
+  }
+}

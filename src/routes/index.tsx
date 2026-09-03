@@ -1,17 +1,26 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, Star, Layers } from "lucide-react";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import { ProductCard } from "@/components/site/ProductCard";
 import { TrustBar } from "@/components/site/TrustBar";
-import { products as fallbackProducts, getProductsAsync, formatPrice, type Product } from "@/lib/products";
+import {
+  getProductsAsync,
+  getShopifyCollectionsAsync,
+  formatPrice,
+  type Product,
+  type CollectionItem,
+} from "@/lib/products";
 import heroHoodie from "@/assets/hero-hoodie.jpg";
 import dropBanner from "@/assets/drop-banner.jpg";
 
 export const Route = createFileRoute("/")({
   loader: async () => {
-    const products = await getProductsAsync();
-    return { products };
+    const [products, collections] = await Promise.all([
+      getProductsAsync(),
+      getShopifyCollectionsAsync(),
+    ]);
+    return { products, collections };
   },
   head: () => ({
     meta: [
@@ -32,8 +41,9 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const { products: loadedProducts } = Route.useLoaderData();
+  const { products: loadedProducts, collections: loadedCollections } = Route.useLoaderData();
   const [productList, setProductList] = useState<Product[]>(loadedProducts || []);
+  const [collectionList, setCollectionList] = useState<CollectionItem[]>(loadedCollections || []);
 
   useEffect(() => {
     if (loadedProducts && loadedProducts.length > 0) {
@@ -45,28 +55,19 @@ function Home() {
         }
       });
     }
-  }, [loadedProducts]);
+
+    if (loadedCollections && loadedCollections.length > 0) {
+      setCollectionList(loadedCollections);
+    } else {
+      getShopifyCollectionsAsync().then((cols) => {
+        if (cols.length > 0) {
+          setCollectionList(cols);
+        }
+      });
+    }
+  }, [loadedProducts, loadedCollections]);
 
   const featured = productList[0];
-
-  const categoriesWithDynamicImages = [
-    {
-      name: "Hoodies",
-      image: productList.find((p) => p.category === "Hoodies")?.image || featured?.image || heroHoodie,
-    },
-    {
-      name: "Oversized Tees",
-      image: productList.find((p) => p.category === "Oversized Tees")?.image || productList[1]?.image || heroHoodie,
-    },
-    {
-      name: "Sweatshirts",
-      image: productList.find((p) => p.category === "Sweatshirts")?.image || productList[2]?.image || heroHoodie,
-    },
-    {
-      name: "Accessories",
-      image: productList.find((p) => p.category === "Accessories")?.image || productList[3]?.image || heroHoodie,
-    },
-  ];
 
   return (
     <SiteLayout>
@@ -162,39 +163,51 @@ function Home() {
         </section>
       )}
 
-      {/* Categories */}
-      <section className="mt-14">
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="eyebrow">Browse</p>
-            <h2 className="mt-2 text-2xl sm:text-3xl">Shop by Category</h2>
-          </div>
-          <Link to="/shop" className="text-sm font-bold text-primary hover:underline">
-            View all
-          </Link>
-        </div>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {categoriesWithDynamicImages.map((cat) => (
-            <Link
-              key={cat.name}
-              to="/shop"
-              className="group relative overflow-hidden rounded-2xl"
-            >
-              <img
-                src={cat.image}
-                alt={cat.name}
-                loading="lazy"
-                className="aspect-4/5 w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-ink/85 via-ink/10 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between p-4">
-                <span className="text-base font-extrabold text-ink-foreground">{cat.name}</span>
-                <ArrowRight className="h-4 w-4 text-primary" />
-              </div>
+      {/* Shopify Collections */}
+      {collectionList.length > 0 && (
+        <section className="mt-14">
+          <div className="flex items-end justify-between">
+            <div>
+              <p className="eyebrow">Collections</p>
+              <h2 className="mt-2 text-2xl sm:text-3xl">Shop by Collection</h2>
+            </div>
+            <Link to="/shop" className="text-sm font-bold text-primary hover:underline">
+              View all
             </Link>
-          ))}
-        </div>
-      </section>
+          </div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {collectionList.map((col) => (
+              <Link
+                key={col.id}
+                to="/shop"
+                search={{ category: col.title }}
+                className="group relative overflow-hidden rounded-2xl aspect-4/5 block shadow-xs bg-surface"
+              >
+                <img
+                  src={col.image}
+                  alt={col.title}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-ink/90 via-ink/20 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 flex items-center justify-between p-4 sm:p-5">
+                  <div>
+                    <span className="text-base sm:text-lg font-extrabold text-ink-foreground block leading-tight">
+                      {col.title}
+                    </span>
+                    <span className="text-xs text-ink-muted font-medium mt-0.5 block">
+                      {col.count ? `${col.count} Products` : "Explore drop"}
+                    </span>
+                  </div>
+                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors shrink-0">
+                    <ArrowRight className="h-4 w-4" />
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Drop banner */}
       <section className="relative mt-14 overflow-hidden rounded-3xl">

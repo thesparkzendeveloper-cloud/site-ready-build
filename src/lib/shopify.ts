@@ -259,6 +259,16 @@ const COLLECTIONS_QUERY = `
           url
           altText
         }
+        products(first: 1) {
+          nodes {
+            id
+            title
+            featuredImage {
+              url
+              altText
+            }
+          }
+        }
       }
     }
   }
