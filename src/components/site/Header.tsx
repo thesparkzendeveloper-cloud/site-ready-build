@@ -277,17 +277,17 @@ export function Header() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="left"
-          className="flex w-[85vw] max-w-xs sm:max-w-sm flex-col p-0 bg-background border-r border-border"
+          className="flex h-full h-[100dvh] max-h-[100dvh] w-[85vw] max-w-xs sm:max-w-sm flex-col p-0 gap-0 bg-background border-r border-border overflow-hidden"
         >
           {/* Drawer Header with SparkZen Logo */}
-          <SheetHeader className="border-b border-border/80 px-5 py-4 text-left">
+          <SheetHeader className="border-b border-border/80 px-5 py-4 text-left shrink-0">
             <SheetTitle className="flex items-center justify-between">
               <Logo />
             </SheetTitle>
           </SheetHeader>
 
           {/* Drawer Navigation List */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-1 overscroll-contain">
             {/* Home */}
             <Link
               to="/"
@@ -510,7 +510,7 @@ export function Header() {
           </div>
 
           {/* Drawer Footer */}
-          <div className="border-t border-border px-5 py-4 text-xs text-muted-foreground text-center">
+          <div className="shrink-0 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs text-muted-foreground text-center bg-background">
             © 2026 SparkZen Clothing
           </div>
         </SheetContent>
