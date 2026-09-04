@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/site/ProductCard";
 import {
   getProduct,
   getProductAsync,
+  getProductsAsync,
   products as fallbackProducts,
   formatPrice,
   getColorCode,

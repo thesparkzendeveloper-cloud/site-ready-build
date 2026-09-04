@@ -130,12 +130,12 @@ export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
   const extractedSizes = sizeOption?.values && sizeOption.values.length > 0
     ? sizeOption.values
     : Array.from(
-        new Set(
-          sp.variants?.nodes
-            ?.map((v) => v.selectedOptions?.find((opt) => opt.name.toLowerCase() === "size")?.value)
-            .filter(Boolean) as string[]
-        )
-      );
+      new Set(
+        sp.variants?.nodes
+          ?.map((v) => v.selectedOptions?.find((opt) => opt.name.toLowerCase() === "size")?.value)
+          .filter(Boolean) as string[]
+      )
+    );
 
   // Extract colors from Shopify options or variants
   const colorOption = sp.options?.find(
@@ -144,16 +144,16 @@ export function mapShopifyProductToProduct(sp: ShopifyProduct): Product {
   const extractedColors = colorOption?.values && colorOption.values.length > 0
     ? colorOption.values
     : Array.from(
-        new Set(
-          sp.variants?.nodes
-            ?.map((v) =>
-              v.selectedOptions?.find(
-                (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
-              )?.value
-            )
-            .filter(Boolean) as string[]
-        )
-      );
+      new Set(
+        sp.variants?.nodes
+          ?.map((v) =>
+            v.selectedOptions?.find(
+              (opt) => opt.name.toLowerCase() === "color" || opt.name.toLowerCase() === "colour"
+            )?.value
+          )
+          .filter(Boolean) as string[]
+      )
+    );
 
   return {
     id: sp.id,
@@ -325,7 +325,6 @@ export async function getShopifyCollectionsAsync(): Promise<CollectionItem[]> {
         const firstProduct = matchingProducts[0];
         const img =
           col.image?.url ||
-          col.products?.nodes?.[0]?.featuredImage?.url ||
           firstProduct?.image ||
           heroHoodie;
 

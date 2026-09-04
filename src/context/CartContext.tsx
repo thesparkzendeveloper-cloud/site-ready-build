@@ -49,6 +49,7 @@ interface CartContextType {
   updateQuantity: (lineId: string, quantity: number) => Promise<void>;
   removeFromCart: (lineId: string) => Promise<void>;
   checkout: () => Promise<void>;
+  getShopifyCheckoutUrl: () => Promise<string | null>;
   clearCart: () => void;
 }
 
@@ -407,24 +408,46 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const checkout = async () => {
-    setIsLoading(true);
+  const getShopifyCheckoutUrl = async (): Promise<string | null> => {
     try {
       const currentCartId = cartId || safeGetItem(LOCAL_CART_KEY);
-
       if (currentCartId) {
-        const liveCheckoutUrl = await diagnoseShopifyCartCheckoutUrl(currentCartId);
-        if (liveCheckoutUrl && liveCheckoutUrl.checkoutUrl) {
-          window.location.href = liveCheckoutUrl.checkoutUrl;
-          return;
+        const liveCheckout = await diagnoseShopifyCartCheckoutUrl(currentCartId);
+        if (liveCheckout && liveCheckout.checkoutUrl) {
+          setCheckoutUrl(liveCheckout.checkoutUrl);
+          return liveCheckout.checkoutUrl;
         }
       }
 
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
+      if (checkoutUrl) return checkoutUrl;
+
+      // If cart has items but cartId is missing or expired, create fresh Shopify cart
+      if (cart.length > 0) {
+        const lines: Array<{ merchandiseId: string; quantity: number }> = [];
+        for (const item of cart) {
+          const vId = (await resolveRealVariantId(item.variantId, item.handle)) || item.variantId;
+          lines.push({ merchandiseId: vId, quantity: item.quantity });
+        }
+        const created = await createShopifyCart(lines);
+        if (created.cart) {
+          syncShopifyCart(created.cart);
+          return created.cart.checkoutUrl || null;
+        }
+      }
+    } catch (error) {
+      console.warn("[CartContext] Error resolving Shopify checkout URL:", error);
+    }
+    return null;
+  };
+
+  const checkout = async () => {
+    setIsLoading(true);
+    try {
+      const targetCheckoutUrl = await getShopifyCheckoutUrl();
+      if (targetCheckoutUrl) {
+        window.location.href = targetCheckoutUrl;
         return;
       }
-
       window.location.href = "/checkout";
     } catch (error) {
       console.error("Checkout error:", error);
@@ -463,6 +486,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateQuantity,
         removeFromCart,
         checkout,
+        getShopifyCheckoutUrl,
         clearCart,
       }}
     >
